@@ -59,7 +59,7 @@ class FileLogCatcher(root: File) {
         val logFiles = root.listFiles().filter { it.endsWith(".log") }.sorted()
         logFiles.dropLast(1).forEach { it.delete() }
         prevLog = logFiles.lastOrNull()
-        currentLog = File(root, "${Date().iso8601()}.log")
+        currentLog = File(root, "${Date().iso8601}.log")
         HRLogWriter(currentLog.outputStream()).use { lw ->
             Thread() {
                 while (true) {

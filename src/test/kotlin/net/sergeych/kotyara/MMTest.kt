@@ -23,7 +23,7 @@ internal class MMTest : Loggable  by TaggedLogger("TS0"){
     }
 
     @Test fun instantToIso() {
-        println((Instant.now().iso8601()))
+        println((Instant.now().iso8601))
         assertEquals(1,1)
     }
 }

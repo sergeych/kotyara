@@ -146,7 +146,8 @@ object DefaultLogger {
 /**
  * Chained DefaultLogger that adds prefix to all passing messages
  */
-class TaggedLogger(private val prefix: String) : Loggable {
+class TaggedLogger(private val _prefix: String) : Loggable {
+    val prefix by lazy { "${System.identityHashCode(this).toString(16)} $_prefix"}
     override fun debug(text: String) { DefaultLogger.debug(prefix, text)}
     override fun info(text: String) { DefaultLogger.info(prefix, text)}
     override fun error(text: String, t: Throwable?) { DefaultLogger.error(prefix, text, t)}

@@ -32,7 +32,7 @@ class HRLogWriter(output: OutputStream) : Closeable {
                     )
         ) {
             last = c
-            out.write("---- log continues on ${d.iso8601()} ----\n")
+            out.write("---- log continues on ${d.iso8601} ----\n")
         }
     }
 
