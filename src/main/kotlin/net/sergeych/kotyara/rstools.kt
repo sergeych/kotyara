@@ -1,15 +1,40 @@
 package net.sergeych.kotyara
 
 import java.sql.ResultSet
+import kotlin.reflect.KClass
+import kotlin.reflect.jvm.jvmErasure
 
-inline fun <reified T> ResultSet.getValue(colIndex: Int=1) = when (val cls = T::class) {
-    String::class -> getString(colIndex) as T
-    Int::class -> getInt(colIndex) as T
-    Long::class -> getLong(colIndex) as T
-    ByteArray::class -> getBytes(colIndex) as T
-    else -> throw IllegalArgumentException("unsupported type: ${cls.qualifiedName}")
+
+fun <T: Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
+    val value = when(cls) {
+        String::class -> getString(colName)
+        Int::class -> getInt(colName)
+        else ->
+            throw DbException("unknown param type $cls for column '$colName'")
+    }
+    return if (wasNull()) null else (value as T)
 }
 
-inline fun <reified T> ResultSet.getValue(colName: String) = getValue<T>(findColumn(colName))
+fun <T: Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T? =
+    getValue(cls, metaData.getColumnName(1))
 
 
+inline fun <reified T: Any> ResultSet.getValue(colName: String): T? = getValue<T>(T::class,colName)
+inline fun <reified T: Any> ResultSet.getValue(colIndex: Int): T? = getValue<T>(T::class,colIndex)
+
+fun <T: Any> ResultSet.asOne(klass: KClass<T>): T? {
+    if( isBeforeFirst ) next()
+    if( isAfterLast ) return null
+    val constructor = klass.constructors.first()
+    val args = constructor.parameters.map { param -> getValue(
+        param.type.jvmErasure,
+        param.name!!)
+    }
+    return constructor.call(*args.toTypedArray())
+}
+
+fun <T: Any> ResultSet.asMany(klass: KClass<T>): List<T> {
+    val result = arrayListOf<T>()
+    while(next()) result.add(asOne(klass)!!)
+    return result
+}

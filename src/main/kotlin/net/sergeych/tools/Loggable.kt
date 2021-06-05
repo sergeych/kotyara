@@ -113,13 +113,6 @@ object DefaultLogger {
      */
     fun connectStdout() {
         if (!stdoutInstalled.getAndSet(true)) {
-//            onMessage.addListener {
-//                if (it.severity == Severity.ERROR) {
-//                    System.err.println(it.shortFormat)
-//                    it.throwable?.printStackTrace()
-//                } else
-//                    println(it.shortFormat)
-//            }
             HRLogWriter.startLogPump(System.out)
         }
     }
