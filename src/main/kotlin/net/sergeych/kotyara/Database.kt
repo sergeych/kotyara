@@ -2,11 +2,10 @@ package net.sergeych.kotyara
 
 import net.sergeych.tools.Loggable
 import net.sergeych.tools.TaggedLogger
-import java.lang.Exception
-import java.lang.IllegalStateException
-import java.sql.*
+import java.sql.Connection
+import java.sql.DriverManager
+import java.sql.SQLException
 import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeoutException
 
@@ -15,7 +14,7 @@ typealias ConnectionFactory = () -> Connection
 class Database(
     private val writeConnectionFactory: ConnectionFactory,
     private val readConnectionFactory: ConnectionFactory = writeConnectionFactory,
-    var maxIdleConnections: Int = 5,
+//    var maxIdleConnections: Int = 5,
     private var _maxConnections: Int = 30
 ) : Loggable by TaggedLogger("DBSE") {
 
@@ -85,10 +84,10 @@ class Database(
             destroyContext(ct)
             throw x
         } catch (x: InterruptedException) {
-            warning("interrupted exceptoin in pool: leaking context")
+            warning("interrupted exception in pool: leaking context")
             throw x
         } catch (x: Throwable) {
-            warning("Unexpected exception in withContext:, releasong it ($x)")
+            warning("Unexpected exception in withContext:, releasing it ($x)")
             releaseContext(ct)
             throw x
         }.also {
@@ -106,7 +105,7 @@ class Database(
      * Close all connections, blocking until all connections are closed. When this methods blocks, no
      * new contexts are served by [inContext] or [withContext], which will throw [NoMoreConnectionsException].
      * When the method finishes it will allow creating new connections. To perform some operations on the database
-     * exclusively, use a hook. It will get a separate copy of the [Database] if present, and couls perform
+     * exclusively, use a hook. It will get a separate copy of the [Database] if present, and could perform
      * operations as usual, then its [Database] copy will be deleted and normal operations restored.
      *
      * @param maxWaitTime how long to wait for all connections to close.
