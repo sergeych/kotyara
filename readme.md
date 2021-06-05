@@ -1,6 +1,10 @@
 # KOTYARA library
 
-> this library is under initial development
+Following a known naming tradition:
+
+__KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
+
+> this library is under initial development, not ready for evaluation.
 
 Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems.
 
@@ -8,7 +12,8 @@ The idea is to let the same agility that provides scala anorm library without pr
 
 It also has built-in support for different read and write connections for heavy loaded data systems with write-master/read-slaves db setups.
 
-It is not yet ready for any evaluation.
+It has owne simple and fast pool intended to detect some common pool usage errors (lake sharing pooled connections out of the usage context).
 
+Build-in migrations support is being made by combining flyway and ActiveRecord approach, providinv versioned migrations, repeating migrations, source code migrations and platofrm-agnostic recovery support for failed migrations, what means rolling back transactinos where DDL supports it (e.g. with postgres), and copying the whole database where postgres is not yet used. This, though, requires `Schema` implementations for particular platforms, though we will provide generic one.
 
 
