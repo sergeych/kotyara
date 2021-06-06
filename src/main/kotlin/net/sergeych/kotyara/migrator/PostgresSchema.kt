@@ -1,7 +1,7 @@
 package net.sergeych.kotyara.migrator
 
 import net.sergeych.kotyara.Database
-import net.sergeych.kotyara.DbContext
+import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.Schema
 
 class PostgresSchema(db: Database) : Schema(db, true) {

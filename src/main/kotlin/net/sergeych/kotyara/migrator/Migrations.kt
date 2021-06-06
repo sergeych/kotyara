@@ -1,6 +1,6 @@
 package net.sergeych.kotyara.migrator
 
-import net.sergeych.kotyara.DbContext
+import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.Schema
 import net.sergeych.tools.Loggable
 import net.sergeych.tools.TaggedLogger

@@ -1,7 +1,9 @@
 package net.sergeych.kotyara
 
+import net.sergeych.tools.camelToSnakeCase
 import java.sql.ResultSet
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.*
@@ -14,10 +16,12 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
     val value = when (cls) {
         String::class -> getString(colName)
         Int::class -> getInt(colName)
+        Long::class -> getInt(colName)
         Date::class -> getTimestamp(colName)
-        ZonedDateTime::class -> ZonedDateTime.ofInstant(
-            Instant.ofEpochMilli(getTimestamp(colName).time), ZoneId.systemDefault()
-        )
+        LocalDate::class -> getTimestamp(colName)?.let { it.toLocalDateTime().toLocalDate() }
+        ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
+            ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
+        }
         Boolean::class -> getBoolean(colName)
         else ->
             throw DbException("unknown param type $cls for column '$colName'")
@@ -39,7 +43,7 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>): T? {
     val args = constructor.parameters.map { param ->
         getValue(
             param.type.jvmErasure,
-            param.name!!
+            param.name!!.camelToSnakeCase()
         )
     }
     return constructor.call(*args.toTypedArray())

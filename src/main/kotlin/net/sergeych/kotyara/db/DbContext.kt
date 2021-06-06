@@ -1,5 +1,6 @@
-package net.sergeych.kotyara
+package net.sergeych.kotyara.db
 
+import net.sergeych.kotyara.*
 import net.sergeych.tools.Loggable
 import net.sergeych.tools.TaggedLogger
 import java.lang.IllegalStateException
@@ -16,38 +17,38 @@ class DbContext(
 ) : Loggable by TaggedLogger("DBC") {
 
     private val readConnection: Connection
-        get() = if( inTransaction ) writeConnection else _readConnection
+        get() = if (inTransaction) writeConnection else _readConnection
 
-    inline fun <reified T: Any> queryOne(sql: String, vararg params: Any): T? {
+    inline fun <reified T : Any> queryOne(sql: String, vararg params: Any): T? {
         return withResultSet(true, sql, *params) { rs ->
-            if( rs.next() )
+            if (rs.next())
                 rs.getValue(1)
             else
                 null
         }
     }
 
-    inline fun <reified T: Any> updateQueryOne(sql: String, vararg params: Any): T? {
+    inline fun <reified T : Any> updateQueryOne(sql: String, vararg params: Any): T? {
         return withResultSet(false, sql, *params) { rs ->
-            if( rs.next() )
+            if (rs.next())
                 rs.getValue(1)
             else
                 null
         }
     }
 
-    inline fun <reified T: Any>queryRow(sql: String,vararg params: Any): T? {
+    inline fun <reified T : Any> queryRow(sql: String, vararg params: Any): T? {
         return withResultSet(true, sql, *params) { it.asOne(T::class) }
     }
 
-    inline fun <reified T: Any>updateQueryRow(sql: String,vararg params: Any): T? {
+    inline fun <reified T : Any> updateQueryRow(sql: String, vararg params: Any): T? {
         return withResultSet(false, sql, *params) { it.asOne(T::class) }
     }
 
-    inline fun <reified T: Any>query(sql: String,vararg params: Any): List<T>
-        = withResultSet(true, sql, *params) { it.asMany(T::class) }
+    inline fun <reified T : Any> query(sql: String, vararg params: Any): List<T> =
+        withResultSet(true, sql, *params) { it.asMany(T::class) }
 
-        fun update(sql: String, vararg params: Any?): Int =
+    fun sql(sql: String, vararg params: Any?): Int =
         withWriteStatement(sql, *params) { it.executeUpdate() }
 
     /**
@@ -91,10 +92,10 @@ class DbContext(
     }
 
     fun <T> withReadStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
-        withReadStatement2(sql, true, *args, f = block)
+        withReadStatement2(sql, *args, f = block)
 
     fun <T> withWriteStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
-        withWriteStatement2(sql, true, *args, f = block)
+        withWriteStatement2(sql, *args, f = block)
 
     fun <T> withStatement2(
         isRead: Boolean,
@@ -114,6 +115,7 @@ class DbContext(
         vararg args: Any?,
         f: (PreparedStatement) -> T
     ): T {
+        debug("WRS $sql [$args]")
         val statement = readStatementCache.getOrPut(sql) {
             readConnection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)
         }
@@ -128,6 +130,7 @@ class DbContext(
         vararg args: Any?,
         f: (PreparedStatement) -> T
     ): T {
+        debug("WWS $sql [$args]")
         val statement = writeStatementCache.getOrPut(sql) {
             writeConnection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)
         }
@@ -147,7 +150,7 @@ class DbContext(
      * This method _must throw exception_ if the connection is still somehow used!
      */
     internal fun beforeRelease() {
-        if( savepointLevel.get() > 0 )
+        if (savepointLevel.get() > 0)
             throw IllegalStateException("DbContext is locked in savepoint, can't release")
     }
 
@@ -174,7 +177,7 @@ class DbContext(
 
     fun executeAll(sqls: String) {
         for (line in sqls.split(";\n").filter { it.isNotBlank() }) {
-            debug("EXEC SQL: $line")
+            debug("EXEC SQL: ${line.split("\n").joinToString("\n\t")}")
             writeConnection.prepareStatement(line).use {
                 val result = it.executeUpdate()
                 debug("EXECUTED: $result")
@@ -182,13 +185,16 @@ class DbContext(
         }
     }
 
+    inline fun <reified T : Any> select(): Relation<T> =
+        Relation(this, T::class)
+
     private val closed = AtomicBoolean(false)
 
     val isClosed: Boolean
         get() = closed.get()
 
     fun close() {
-        if( !closed.getAndSet(true) ) {
+        if (!closed.getAndSet(true)) {
             if (writeConnection != readConnection)
                 ignoreExceptions { writeConnection.close() }
             ignoreExceptions { readConnection.close() }
@@ -198,7 +204,7 @@ class DbContext(
 
     private var transactionLevel = 0U
 
-    fun <T>transaction(block:()->T): T = savepoint(block)
+    fun <T> transaction(block: () -> T): T = savepoint(block)
 
     init {
         debug("DbContext $this is allocated")

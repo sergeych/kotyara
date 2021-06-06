@@ -1,5 +1,6 @@
 package net.sergeych.kotyara
 
+import net.sergeych.kotyara.db.DbContext
 import net.sergeych.tools.Loggable
 import net.sergeych.tools.TaggedLogger
 import java.sql.Connection

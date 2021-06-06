@@ -1,5 +1,6 @@
 package net.sergeych.kotyara
 
+import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.migrator.MigrationException
 import net.sergeych.kotyara.migrator.Migrations
 import net.sergeych.tools.Loggable
@@ -48,8 +49,8 @@ abstract class Schema(private val externalDb: Database, private val useTransacti
     var currentVersion = 0
 
     fun migrateFromResources(resourcePath: String = "db/migrations") {
-        val rr = javaClass.classLoader.getResources(resourcePath+"/*.sql").toList()
-        debug("Found migration resources: $rr")
+        val rr = javaClass.classLoader.getResources("${resourcePath}/*.sql").toList()
+        debug("Found migration resources: $resourcePath: $rr")
         migrate(
             Migrations(rr.map {
                 debug("found: ${Path(it.path).name}")
@@ -103,8 +104,8 @@ abstract class Schema(private val externalDb: Database, private val useTransacti
                             debug("executed after-handler for version $v")
                         }
                     }
-                    cxt.update("drop if exists from ${migrationsTable} where name=?", m.name)
-                    cxt.update(
+                    cxt.sql("drop if exists from ${migrationsTable} where name=?", m.name)
+                    cxt.sql(
                         "insert into ${migrationsTable}(name, version, hash) values(?,?,?)",
                         m.name, m.version, m.hash
                     )

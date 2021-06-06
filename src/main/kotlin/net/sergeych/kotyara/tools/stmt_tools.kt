@@ -2,6 +2,9 @@ package net.sergeych.kotyara
 
 import java.lang.IllegalArgumentException
 import java.sql.PreparedStatement
+import java.sql.Timestamp
+import java.time.*
+import java.util.*
 
 fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
     when (x) {
@@ -9,6 +12,10 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is Int -> setInt(n, x)
         is Long -> setLong(n, x)
         is ByteArray -> setBytes(n, x)
+        is Char -> setString(n,"$x")
+        is LocalDateTime -> setTimestamp(n, Timestamp.valueOf(x))
+        is LocalDate -> setTimestamp(n,Timestamp.valueOf(LocalDateTime.of(x, LocalTime.MIN)))
+        is ZonedDateTime -> setTimestamp(n, Timestamp.valueOf(x.toLocalDateTime()))
         null -> setObject(n, null)
         else -> {
             throw IllegalArgumentException("unknown param[$n]:$x type: ${x::class.qualifiedName} from $sql")

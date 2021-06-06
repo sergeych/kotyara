@@ -1,8 +1,5 @@
 package net.sergeych.kotyara.migrator
 
-import net.sergeych.kotyara.DbContext
-import net.sergeych.kotyara.Schema
-import java.lang.IllegalStateException
 import java.lang.NumberFormatException
 import java.security.MessageDigest
 import java.util.*
