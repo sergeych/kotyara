@@ -13,9 +13,10 @@ repositories {
 }
 
 dependencies {
+    implementation(kotlin("reflect"))
+
     testImplementation(kotlin("test"))
     testImplementation("org.postgresql:postgresql:42.2.20")
-    implementation(kotlin("reflect"))
 }
 
 tasks.test {
@@ -23,7 +24,7 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile>() {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = "11"
 }
 
 tasks.jar {
@@ -36,3 +37,27 @@ tasks.jar {
 java {
     withSourcesJar()
 }
+
+
+
+tasks.register<Copy>("localRelease") {
+    dependsOn("jar")
+    from("$rootDir/build/libs/kotyara-$version.jar")
+    into("$rootDir/../jarlib")
+    rename { "kotyara.jar" }
+}
+
+
+
+//val kotyaraJars by configurations.creating {
+//    isCanBeConsumed = true
+//    isCanBeResolved = false
+//    // If you want this configuration to share the same dependencies, otherwise omit this line
+//    extendsFrom(configurations["implementation"], configurations["runtimeOnly"])
+//}
+
+//artifacts {
+//    add("kotyara", kotyaraJars)
+//}
+//
+
