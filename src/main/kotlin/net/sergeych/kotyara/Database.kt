@@ -81,7 +81,7 @@ class Database(
         return try {
             block(ct)
         } catch (x: SQLException) {
-            error("withContext failed with SQLException, we'll close connection", x)
+//            error("withContext failed with SQLException, we'll close connection", x)
             throw x
         } catch (x: InterruptedException) {
             warning("interrupted exception in pool: leaking context")

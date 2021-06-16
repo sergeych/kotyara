@@ -132,7 +132,7 @@ class DbContext(
         statement.clearParameters()
         args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
-        return reportExceptions { f(statement) }
+        return f(statement)
     }
 
     fun <T> withWriteStatement2(
@@ -147,7 +147,7 @@ class DbContext(
         statement.clearParameters()
         args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
-        return reportExceptions { f(statement) }
+        return  f(statement)
     }
 
 
