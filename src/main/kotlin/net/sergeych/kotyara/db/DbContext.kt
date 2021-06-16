@@ -48,6 +48,13 @@ class DbContext(
     inline fun <reified T : Any> query(sql: String, vararg params: Any): List<T> =
         withResultSet(true, sql, *params) { it.asMany(T::class) }
 
+    fun <T : Any> queryWith(sql: String, vararg params: Any, transformer: (ResultSet)->T): List<T> =
+        withResultSet(true, sql, *params) { rs ->
+            val result = mutableListOf<T>()
+            while(rs.next()) result.add(transformer(rs))
+            result
+        }
+
     fun sql(sql: String, vararg params: Any?): Int =
         withWriteStatement(sql, *params) { it.executeUpdate() }
 
@@ -60,7 +67,10 @@ class DbContext(
      */
     fun <T> withResultSet(isRead: Boolean = true, sql: String, vararg params: Any?, f: (ResultSet) -> T): T {
         return withStatement2(isRead, sql, *params) {
-            val rs = it.executeQuery()
+            val rs = if( isRead ) it.executeQuery() else  {
+                it.execute()
+                it.resultSet
+            }
             try {
                 f(rs)
             } catch (x: Exception) {
@@ -132,7 +142,7 @@ class DbContext(
     ): T {
         debug("WWS $sql [$args]")
         val statement = writeStatementCache.getOrPut(sql) {
-            writeConnection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)
+            writeConnection.prepareStatement(sql)
         }
         statement.clearParameters()
         args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }

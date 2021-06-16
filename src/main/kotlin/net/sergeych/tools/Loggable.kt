@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.logging.Level
 
 interface Loggable {
     fun debug(text: String)
@@ -51,10 +52,10 @@ interface Loggable {
  *
  * Use [[TaggedLogger]] to delegate actial logging to your class.
  *
- * Call [DefaultLogger.connectStdout]] early to get logs to teh stdoout, or suvscribe to logged events with
- * [[DefaultLogger.onMessage]].
+ * Call [Logger.connectStdout]] early to get logs to teh stdoout, or suvscribe to logged events with
+ * [[Logger.onMessage]].
  */
-object DefaultLogger {
+object Logger {
 
     enum class Severity {
         DEBUG, INFO, ERROR, WARNING
@@ -111,9 +112,9 @@ object DefaultLogger {
      * Add stdout log target. Safe to call it any number of times. Ince connected, this target could not
      * be disconnected
      */
-    fun connectStdout() {
+    fun connectStdout(level: Logger.Severity = Severity.DEBUG) {
         if (!stdoutInstalled.getAndSet(true)) {
-            HRLogWriter.startLogPump(System.out)
+            HRLogWriter.startLogPump(System.out, level)
         }
     }
 
@@ -135,11 +136,14 @@ object DefaultLogger {
 
 
     init {
-        Thread {
+        with(Thread {
             while (true) {
                 onMessage.fire(queue.poll(Long.MAX_VALUE, TimeUnit.SECONDS)!!)
             }
-        }.start()
+        }) {
+            isDaemon = true
+            start()
+        }
     }
 }
 
@@ -148,8 +152,8 @@ object DefaultLogger {
  */
 class TaggedLogger(private val _prefix: String) : Loggable {
     val prefix by lazy { "${System.identityHashCode(this).toString(16)} $_prefix"}
-    override fun debug(text: String) { DefaultLogger.debug(prefix, text)}
-    override fun info(text: String) { DefaultLogger.info(prefix, text)}
-    override fun error(text: String, t: Throwable?) { DefaultLogger.error(prefix, text, t)}
-    override fun warning(text: String) { DefaultLogger.warning(prefix, text)}
+    override fun debug(text: String) { Logger.debug(prefix, text)}
+    override fun info(text: String) { Logger.info(prefix, text)}
+    override fun error(text: String, t: Throwable?) { Logger.error(prefix, text, t)}
+    override fun warning(text: String) { Logger.warning(prefix, text)}
 }

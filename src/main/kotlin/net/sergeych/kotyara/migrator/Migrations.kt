@@ -44,7 +44,7 @@ class Migrations(source: Iterable<Source>) : Loggable by TaggedLogger("MSRC") {
     fun toPerform(cxt: DbContext): List<Migration> {
         // first, versioned migrations:
         val dbVersion =
-            cxt.queryOne("select version from ${Schema.migrationsTable} order by version desc limit 1") ?: 0
+            cxt.queryOne("select version from ${Schema.migrationsTable} where version is not null order by version desc limit 1") ?: 0
         if (dbVersion < 0 || dbVersion > lastVersion)
             throw MigrationException("versions inconsistency: db version is $dbVersion and migration version is $lastVersion")
         val migrationsToPerform = mutableListOf<Migration>()
@@ -52,12 +52,18 @@ class Migrations(source: Iterable<Source>) : Loggable by TaggedLogger("MSRC") {
             migrationsToPerform.add(versions[v] ?: throw MigrationException("missing required migration version=$v"))
         }
 
-        // now, changed repeatable migrations
-        val repetableHashes = cxt.query<String>("select hash from ${Schema.migrationsTable} where version is null")
+        val repetableHashes = cxt.queryWith(
+            "select hash from ${Schema.migrationsTable} where version is null") {
+            it.getString(1)
+        }
             .toSet()
         migrationsToPerform.addAll(
             repeatables.sortedBy { it.name }.filter { it.hash !in repetableHashes }
         )
+        if( migrationsToPerform.size == 0)
+            info("no migrations needed")
+        else
+            info("${migrationsToPerform.size} migration(s) to perform")
         return migrationsToPerform;
     }
 
@@ -71,6 +77,6 @@ class Migrations(source: Iterable<Source>) : Loggable by TaggedLogger("MSRC") {
         }
         versions = vv
         repeatables = rr.sortedBy { it.name }
-        lastVersion = vv.keys.minOrNull() ?: 0
+        lastVersion = vv.keys.maxOrNull() ?: 0
     }
 }

@@ -27,7 +27,7 @@ class Migration(val name: String, val sql: String) {
         try {
             if (!name.lowercase().startsWith("r__")) {
                 reVersioned.find(name)?.let {
-                    v = it.groupValues[0].toInt()
+                    v = it.groupValues[1].toInt()
                 } ?: throw MigrationException("illegal migration name: $name")
             }
         } catch (nf: NumberFormatException) {

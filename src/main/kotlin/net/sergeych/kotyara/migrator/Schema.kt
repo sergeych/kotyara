@@ -4,6 +4,7 @@ import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.migrator.MigrationException
 import net.sergeych.kotyara.migrator.Migrations
 import net.sergeych.tools.Loggable
+import net.sergeych.tools.ResourceHandle
 import net.sergeych.tools.TaggedLogger
 import java.lang.Exception
 import java.lang.IllegalArgumentException
@@ -15,7 +16,7 @@ import kotlin.io.path.name
 
 typealias MigrationHandler = (DbContext) -> Unit
 
-abstract class Schema(private val externalDb: Database, private val useTransactions: Boolean) :
+abstract class Schema(private val useTransactions: Boolean) :
     Loggable by TaggedLogger("SCHM") {
 
     private val beforeHandlers = HashMap<Int, MigrationHandler>()
@@ -48,25 +49,30 @@ abstract class Schema(private val externalDb: Database, private val useTransacti
 
     var currentVersion = 0
 
-    fun migrateFromResources(resourcePath: String = "db/migrations") {
-        val rr = javaClass.classLoader.getResources("${resourcePath}/*.sql").toList()
+    fun migrateWithResources(klass: Class<*>,db: Database, resourcePath: String = "db/migrations") {
+        val rr = ResourceHandle.list(klass, resourcePath)
         debug("Found migration resources: $resourcePath: $rr")
         migrate(
+            db,
             Migrations(rr.map {
-                debug("found: ${Path(it.path).name}")
-                Migrations.Source(Path(it.path).name, it.readText())
+                debug("found: ${it.name}")
+                Migrations.Source(it.name, it.text)
             })
         )
     }
 
-    fun migrate(migrations: Migrations) {
+    fun migrate(externalDb: Database,
+                migrations: Migrations) {
         externalDb.closeAllContexts(Duration.ofMinutes(3)) { db ->
             debug("starting migrations")
             // note beforeall is called before any connection will be created
             // and afler all connections (contexts) will be closed
             beforeAll()
             try {
-                db.withContext { performMigrations(it, migrations) }
+                db.withContext {
+                    prepareMigrationsTable(it)
+                    performMigrations(it, migrations)
+                }
                 // migrations passed, just fine
                 db.closeAllContexts(Duration.ofMinutes(3))
                 // and again, after all is called when everything is done and all connections (contexts) are
@@ -104,7 +110,7 @@ abstract class Schema(private val externalDb: Database, private val useTransacti
                             debug("executed after-handler for version $v")
                         }
                     }
-                    cxt.sql("drop if exists from ${migrationsTable} where name=?", m.name)
+                    cxt.sql("delete from ${migrationsTable} where name=?", m.name)
                     cxt.sql(
                         "insert into ${migrationsTable}(name, version, hash) values(?,?,?)",
                         m.name, m.version, m.hash

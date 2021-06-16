@@ -1,7 +1,7 @@
 package net.sergeych.kotyara
 
-import net.sergeych.tools.DefaultLogger
-import net.sergeych.tools.ResourceHandle
+import net.sergeych.kotyara.migrator.PostgresSchema
+import net.sergeych.tools.Logger
 import net.sergeych.tools.iso8601
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
@@ -60,8 +60,32 @@ internal class DatabaseTest {
     }
 
     @Test
+    fun returning() {
+        testDb().inContext {
+            executeAll(
+                """
+                drop table if exists persons;
+                
+                create table persons(
+                    id bigserial primary key,
+                    name varchar not null,
+                    gender varchar(1) not null,
+                    birth_date date,
+                    created_at timestamp not null default now()
+                    );               
+                """.trimIndent()
+            )
+
+            val i = updateQueryRow<Person>("""
+                insert into persons(name,gender) values('Jimmy Gordon', 'M') returning *;
+                """.trimIndent())
+            println(i)
+        }
+    }
+
+    @Test
     fun relationAll() {
-        DefaultLogger.connectStdout()
+        Logger.connectStdout()
 
         testDb().inContext {
             executeAll("""
@@ -79,6 +103,8 @@ internal class DatabaseTest {
                 insert into persons(name, gender) values('Jane Doe', 'F');   
                 insert into persons(name, gender, birth_date) values('Unix Geek', 'M', '06.05.1970'::date);   
                 """.trimIndent())
+
+
             var all = select<Person>().all
             assertEquals(3, all.size)
             val last = all.last()
@@ -93,6 +119,11 @@ internal class DatabaseTest {
             all = select<Person>().where("gender = ?", 'F').all
             assertEquals(1, all.size)
             assertEquals("Jane Doe", all[0].name)
+
+            val x = select<Person>().where("gender=?", "&").first
+            println(x)
+
+
         }
     }
 
@@ -107,12 +138,18 @@ internal class DatabaseTest {
 //        val x = Thread.currentThread().getContextClassLoader().resources("migration_test1/*.sql").toList()
 //        val x = javaClass.classLoader.getResources("migration_test1/*.sql").toList()
 //        println(x)
-        for( x in ResourceHandle.list( javaClass, "/migration_test1") ) {
-            println("${x.name}: ${x.lines.size} lines, ${x.bytes.size} bytes")
-        }
+//        for( x in ResourceHandle.list( javaClass, "/migration_test1") ) {
+//            println("${x.name}: ${x.lines.size} lines, ${x.bytes.size} bytes")
+//        }
 
 //        DefaultLogger.connectStdout()
-//        val db = testDb()
+        val db = testDb()
+        Logger.connectStdout()
+        db.migrateWithResources(this.javaClass, PostgresSchema(), "/migration_test1")
+
+        db.withContext { ct ->
+            println("see: ${ct.queryOne<Int>("select count(*) from simple_types")}")
+        }
 //        val i: Int = db.inContext { queryOne("select 42")!! }
 //        val s = PostgresSchema(db)
 //        s.migrateFromResources("migration_test1")

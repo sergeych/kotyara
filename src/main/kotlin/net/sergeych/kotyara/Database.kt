@@ -82,18 +82,14 @@ class Database(
             block(ct)
         } catch (x: SQLException) {
             error("withContext failed with SQLException, we'll close connection", x)
-            destroyContext(ct)
             throw x
         } catch (x: InterruptedException) {
             warning("interrupted exception in pool: leaking context")
             throw x
         } catch (x: Throwable) {
             warning("Unexpected exception in withContext:, releasing it ($x)")
-            releaseContext(ct)
             throw x
-        }.also {
-            // we don't want any errors while releasing context to be caught by the
-            // try block above, so we do it outside:
+        } finally {
             releaseContext(ct)
         }
     }
@@ -157,6 +153,10 @@ class Database(
         }
     }
 
+    fun migrateWithResources(klass: Class<*>, schema: Schema, migrationPath: String = "db_migrations") {
+        schema.migrateWithResources(klass, this, migrationPath)
+    }
+
     private val keeperLock = Object()
     private val closeAllEvent = Object()
 
@@ -169,7 +169,7 @@ class Database(
                         keeperLock.wait(if (maxConnections < activeConnections) 200 else 10000)
                     }
                     var counter = 0
-                    debug("keeper $this step: active=$activeConnections max=$maxConnections pool=${pool.size}")
+//                    debug("keeper $this step: active=$activeConnections max=$maxConnections pool=${pool.size}")
                     while (activeConnections > maxConnections && pool.isNotEmpty())
                         pool.remove()?.let { destroyContext(it); counter++ }
                     if (counter > 0)
@@ -186,6 +186,7 @@ class Database(
         }.also {
             it.isDaemon = true
             it.start()
+            debug("keeper thread for $this was set to daemon mode")
         }
     }
 

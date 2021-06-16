@@ -37,8 +37,7 @@ inline fun <reified T : Any> ResultSet.getValue(colName: String): T? = getValue<
 inline fun <reified T : Any> ResultSet.getValue(colIndex: Int): T? = getValue<T>(T::class, colIndex)
 
 fun <T : Any> ResultSet.asOne(klass: KClass<T>): T? {
-    if (isBeforeFirst) next()
-    if (isAfterLast) return null
+    if( !next() ) return null
     val constructor = klass.constructors.first()
     val args = constructor.parameters.map { param ->
         getValue(
@@ -51,6 +50,6 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>): T? {
 
 fun <T : Any> ResultSet.asMany(klass: KClass<T>): List<T> {
     val result = arrayListOf<T>()
-    while (next()) result.add(asOne(klass)!!)
+    while (null != asOne(klass)?.also { result.add(it) });
     return result
 }

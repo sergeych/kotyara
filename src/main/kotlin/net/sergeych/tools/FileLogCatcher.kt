@@ -4,7 +4,6 @@ import java.io.File
 import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
 /**
@@ -12,12 +11,12 @@ import java.util.zip.ZipOutputStream
  * deletes older log files.
  *
  */
-class FileLogCatcher(root: File) {
+class FileLogCatcher(root: File, level: Logger.Severity = Logger.Severity.DEBUG) {
 
     private var prevLog: File?
     private var currentLog: File
 
-    private var queue = LinkedBlockingQueue<DefaultLogger.Entry>()
+    private var queue = LinkedBlockingQueue<Logger.Entry>()
 
     /**
      * Export current logs to zip, with optional metadata. It exports current
@@ -60,14 +59,17 @@ class FileLogCatcher(root: File) {
         logFiles.dropLast(1).forEach { it.delete() }
         prevLog = logFiles.lastOrNull()
         currentLog = File(root, "${Date().iso8601}.log")
-        HRLogWriter(currentLog.outputStream()).use { lw ->
+        HRLogWriter(currentLog.outputStream(), level).use { lw ->
             Thread() {
                 while (true) {
                     lw.write(queue.take())
                     while (queue.isNotEmpty()) queue.poll()?.let { lw.write(it) }
                     lw.flush()
                 }
-            }.start()
+            }.also {
+                it.isDaemon = true
+                it.start()
+            }
         }
     }
 }

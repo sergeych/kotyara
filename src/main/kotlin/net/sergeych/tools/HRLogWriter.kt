@@ -11,8 +11,9 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.logging.Level
 
-class HRLogWriter(output: OutputStream) : Closeable {
+class HRLogWriter(output: OutputStream, var level: Logger.Severity) : Closeable {
     private val out = OutputStreamWriter(output, "UTF-8")
     var last: Calendar? = null
     var isClosed: Boolean = false
@@ -46,8 +47,9 @@ class HRLogWriter(output: OutputStream) : Closeable {
         }
     }
 
-    fun write(entry: DefaultLogger.Entry) {
-        if (!isClosed) {
+    fun write(entry: Logger.Entry) {
+//        println("E:${entry.severity} < ${level} => ${entry.severity <= level}")
+        if (!isClosed && entry.severity >= level) {
             try {
                 writeDateHeader(entry.createdAt)
                 var msg = "${shortInstanceTime.format(entry.createdAt)} ${entry.severity.name[0]} ${entry.tag} ${entry.message}\n"
@@ -73,19 +75,20 @@ class HRLogWriter(output: OutputStream) : Closeable {
             DateTimeFormatter.ofPattern("HH:mm:ss")
                 .withZone(ZoneId.from(ZoneOffset.UTC))
 
-        fun startLogPump(out: OutputStream) {
-            val queue = LinkedBlockingQueue<DefaultLogger.Entry>()
-            val lw = HRLogWriter(out)
-            val t = Thread() {
+        fun startLogPump(out: OutputStream,level: Logger.Severity=Logger.Severity.DEBUG) {
+            val queue = LinkedBlockingQueue<Logger.Entry>()
+            val lw = HRLogWriter(out,level)
+            Thread() {
                 while (true) {
                     lw.write(queue.take())
                     while (queue.isNotEmpty()) queue.poll()?.let { lw.write(it) }
                     lw.flush()
                 }
+            }.also {
+                it.isDaemon = true
+                it.start()
             }
-            t.isDaemon = true
-            t.start()
-            DefaultLogger.onMessage.addListener { queue.put(it) }
+            Logger.onMessage.addListener { queue.put(it) }
         }
     }
 }
