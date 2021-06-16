@@ -6,31 +6,18 @@ import java.io.FileNotFoundException
 import java.net.URI
 import java.nio.file.FileSystems
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.isDirectory
 import kotlin.io.path.pathString
+import kotlin.io.path.readText
 
 /**
  * Handler to retrieve stored resource in a classpath, also in JAR. Use [list] to get a list if handles.
  * Each handle as a [name] and some accessors to get the contents. Hadnles provdie lazy loading and
  * caching of the respective resources.
  */
-class ResourceHandle(val name: String, file: File) {
-
-    /**
-     * Retrieve the whole resource as a string
-     */
-    val text: String by lazy { file.readText() }
-
-    /**
-     * retrieve resource as array of lines, same as split text to lines
-     */
-    val lines: List<String> by lazy { file.readLines() }
-
-    /**
-     * retrieve resource as a binary data
-     */
-    val bytes: ByteArray by lazy { file.readBytes() }
+class ResourceHandle(val name: String, val text: String) {
 
     companion object {
 
@@ -43,28 +30,34 @@ class ResourceHandle(val name: String, file: File) {
          *              unit). We use java Class instead of kotlin to not to require kotlin.reflection here.
          * @return list of resource handles (possibly empty) to access found resources.
          */
-        fun list(klass: Class<*>,root: String): List<ResourceHandle> {
-            val uri: URI = klass.getResource(root)?.toURI()
-                ?: throw FileNotFoundException("resource not found: $root")
-            val myPath = if (uri.getScheme().equals("jar"))
-                FileSystems.newFileSystem(uri, emptyMap<String, Any>()).use { it.getPath(root) }
-            else
-                Paths.get(uri)
-            return Files.walk(myPath, 1).use {
-                it.toList().mapNotNull { r ->
-                    val index = r.pathString.indexOf(root)
-                    if (r.isDirectory() || index < 0)
-                        null
-                    else {
-                        val name = r.pathString.substring(index + root.length + 1)
-                        if (name.isEmpty())
+        fun list(klass: Class<*>, root: String): List<ResourceHandle> {
+
+            fun walk(myPath: Path): List<ResourceHandle> =
+                Files.walk(myPath, 1).use {
+                    it.toList().mapNotNull { r ->
+                        val index = r.pathString.indexOf(root)
+                        if (r.isDirectory() || index < 0)
                             null
                         else {
-                            ResourceHandle(name, r.toFile())
+                            val name = r.pathString.substring(index + root.length + 1)
+                            if (name.isEmpty())
+                                null
+                            else {
+                                ResourceHandle(name, r.readText())
+                            }
                         }
                     }
                 }
-            }
+
+            val uri: URI = klass.getResource(root)?.toURI()
+                ?: throw FileNotFoundException("resource not found: $root")
+            return if (uri.getScheme().equals("jar"))
+                FileSystems.newFileSystem(uri, emptyMap<String, Any>()).use {
+                    walk(it.getPath(root))
+                }
+            else
+                walk(Paths.get(uri))
         }
     }
 }
+
