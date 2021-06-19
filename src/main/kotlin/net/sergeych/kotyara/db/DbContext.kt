@@ -55,7 +55,14 @@ class DbContext(
             result
         }
 
-    fun sql(sql: String, vararg params: Any?): Int =
+    inline fun <reified T: Any>queryColumn(sql: String, vararg params: Any): List<T> =
+        withResultSet(true, sql, *params) { rs ->
+            val result = mutableListOf<T?>()
+            while (rs.next()) result.add(rs.getValue(T::class,1))
+            result.filterNotNull()
+        }
+
+            fun sql(sql: String, vararg params: Any?): Int =
         withWriteStatement(sql, *params) { it.executeUpdate() }
 
     /**
@@ -125,7 +132,7 @@ class DbContext(
         vararg args: Any?,
         f: (PreparedStatement) -> T
     ): T {
-        debug("WRS $sql [$args]")
+        debug("WRS $sql {${args.joinToString(",")}}")
         val statement = readStatementCache.getOrPut(sql) {
             readConnection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)
         }
@@ -197,6 +204,9 @@ class DbContext(
 
     inline fun <reified T : Any> select(): Relation<T> =
         Relation(this, T::class)
+
+    inline fun <reified T: Any> byId(id: Any): T? =
+        select<T>().where("id = ?", id).first
 
     private val closed = AtomicBoolean(false)
 

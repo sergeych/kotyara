@@ -18,7 +18,9 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         Int::class -> getInt(colName)
         Long::class -> getInt(colName)
         Date::class -> getTimestamp(colName)
-        LocalDate::class -> getTimestamp(colName)?.let { it.toLocalDateTime().toLocalDate() }
+        Double::class -> getDouble(colName)
+        Float::class -> getFloat(colName)
+        LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
         }
@@ -26,11 +28,12 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         else ->
             throw DbException("unknown param type $cls for column '$colName'")
     }
+    @Suppress("UNCHECKED_CAST")
     return if (wasNull()) null else (value as T)
 }
 
 fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T? =
-    getValue(cls, metaData.getColumnName(1))
+    getValue(cls, metaData.getColumnName(colIndex))
 
 
 inline fun <reified T : Any> ResultSet.getValue(colName: String): T? = getValue<T>(T::class, colName)
@@ -50,6 +53,7 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>): T? {
 
 fun <T : Any> ResultSet.asMany(klass: KClass<T>): List<T> {
     val result = arrayListOf<T>()
+    @Suppress("ControlFlowWithEmptyBody")
     while (null != asOne(klass)?.also { result.add(it) });
     return result
 }

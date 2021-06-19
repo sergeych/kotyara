@@ -49,7 +49,7 @@ abstract class Schema(private val useTransactions: Boolean) :
 
     var currentVersion = 0
 
-    fun migrateWithResources(klass: Class<*>,db: Database, resourcePath: String = "db/migrations") {
+    fun migrateWithResources(klass: Class<*>, db: Database, resourcePath: String = "db/migrations") {
         val rr = ResourceHandle.list(klass, resourcePath)
         debug("Found migration resources: $resourcePath: $rr")
         migrate(
@@ -61,9 +61,12 @@ abstract class Schema(private val useTransactions: Boolean) :
         )
     }
 
-    fun migrate(externalDb: Database,
-                migrations: Migrations) {
-        externalDb.closeAllContexts(Duration.ofMinutes(3)) { db ->
+    fun migrate(
+        externalDb: Database,
+        migrations: Migrations
+    ) {
+
+        fun doMigrations(db: Database) {
             debug("starting migrations")
             // note beforeall is called before any connection will be created
             // and afler all connections (contexts) will be closed
@@ -74,19 +77,29 @@ abstract class Schema(private val useTransactions: Boolean) :
                     performMigrations(it, migrations)
                 }
                 // migrations passed, just fine
-                db.closeAllContexts(Duration.ofMinutes(3))
+                if (!useTransactions)
+                    db.closeAllContexts(Duration.ofMinutes(3))
                 // and again, after all is called when everything is done and all connections (contexts) are
                 // closed
                 onSuccess()
             } catch (x: Exception) {
                 // migrations failed. now we might need to restore dabase from a file copy, if DDL transactions
                 // are not supported. Cleanup and rethrow
-                db.closeAllContexts(Duration.ofMinutes(3))
+                if (!useTransactions)
+                    db.closeAllContexts(Duration.ofMinutes(3))
                 onFailure()
                 throw x
             }
         }
+
+        if (useTransactions)
+            doMigrations(externalDb)
+        else
+            externalDb.closeAllContexts(Duration.ofMinutes(3)) { db ->
+                doMigrations(db)
+            }
     }
+
 
     private fun performMigrations(cxt: DbContext, migrations: Migrations) {
         for (m in migrations.toPerform(cxt)) {
