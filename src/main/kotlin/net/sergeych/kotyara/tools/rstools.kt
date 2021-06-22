@@ -16,8 +16,9 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
     val value = when (cls) {
         String::class -> getString(colName)
         Int::class -> getInt(colName)
-        Long::class -> getInt(colName)
+        Long::class -> getLong(colName)
         Date::class -> getTimestamp(colName)
+        Boolean::class -> getBoolean(colName)
         Double::class -> getDouble(colName)
         Float::class -> getFloat(colName)
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()

@@ -11,6 +11,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is String -> setString(n, x)
         is Int -> setInt(n, x)
         is Long -> setLong(n, x)
+        is Boolean -> setBoolean(n, x)
         is ByteArray -> setBytes(n, x)
         is Char -> setString(n,"$x")
         is LocalDateTime -> setTimestamp(n, Timestamp.valueOf(x))

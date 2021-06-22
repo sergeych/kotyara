@@ -37,11 +37,11 @@ class DbContext(
         }
     }
 
-    inline fun <reified T : Any> queryRow(sql: String, vararg params: Any): T? {
+    inline fun <reified T : Any> queryRow(sql: String, vararg params: Any?): T? {
         return withResultSet(true, sql, *params) { it.asOne(T::class) }
     }
 
-    inline fun <reified T : Any> updateQueryRow(sql: String, vararg params: Any): T? {
+    inline fun <reified T : Any> updateQueryRow(sql: String, vararg params: Any?): T? {
         return withResultSet(false, sql, *params) { it.asOne(T::class) }
     }
 
@@ -147,7 +147,7 @@ class DbContext(
         vararg args: Any?,
         f: (PreparedStatement) -> T
     ): T {
-        debug("WWS $sql [$args]")
+        debug("WWS $sql [${args.joinToString(",")}]")
         val statement = writeStatementCache.getOrPut(sql) {
             writeConnection.prepareStatement(sql)
         }
@@ -207,6 +207,9 @@ class DbContext(
 
     inline fun <reified T: Any> byId(id: Any): T? =
         select<T>().where("id = ?", id).first
+
+    inline fun <reified T: Any,>findBy(fieldName: String,value: Any?): T? =
+        select<T>().where("$fieldName = ?", value).first
 
     private val closed = AtomicBoolean(false)
 

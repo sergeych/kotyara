@@ -23,22 +23,29 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
     }
 
     private val whereClauses = mutableListOf<String>()
-    private val statementParams = mutableListOf<Any>()
+    private val statementParams = mutableListOf<Any?>()
+    private val order = mutableListOf<String>()
 
-    fun where(whereClause: String,vararg params: Any): Relation<T> {
+    fun where(whereClause: String,vararg params: Any?): Relation<T> {
         whereClauses.add(whereClause)
         statementParams.addAll(params)
         return this
     }
 
-    fun limit(value: Int) {
+    fun order(orderBy: String): Relation<T> {
+        order.add(orderBy)
+        return this
+    }
+
+    fun limit(value: Int): Relation<T> {
         dropCache(); _limit = value
+        return this
     }
 
-    fun offset(value: Int) {
+    fun offset(value: Int): Relation<T> {
         dropCache(); _offset = value
+        return this
     }
-
 
     private fun dropCache() {}
 
@@ -52,6 +59,10 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
         if( whereClauses.isNotEmpty()) {
             sql.append(" where")
             sql.append(whereClauses.joinToString(" and") { " ($it)" })
+        }
+        if( order.isNotEmpty()) {
+            sql.append(" order by ")
+            sql.append(order.joinToString(","))
         }
         if( overrideLimit != null )
             sql.append(" limit 1")
