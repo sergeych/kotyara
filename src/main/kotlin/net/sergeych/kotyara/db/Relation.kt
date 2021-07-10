@@ -53,6 +53,13 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
         return "Rel($selectClause)"
     }
 
+    private var useForUpdate = false
+
+    fun forUpdate(): Relation<T> {
+        useForUpdate = true
+        return this
+    }
+
     fun buildSql(overrideLimit: Int? = null): String {
         val sql = StringBuilder(selectClause)
         // todo: possible joins
@@ -70,6 +77,9 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
             _limit?.let { sql.append(" limit $it") }
 
         _offset?.let { sql.append(" offset $it") }
+
+        if( useForUpdate ) sql.append(" for update")
+
         debug("sql built: $sql")
         return sql.toString()
     }

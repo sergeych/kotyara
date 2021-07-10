@@ -25,7 +25,6 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
         }
-        Boolean::class -> getBoolean(colName)
         else ->
             throw DbException("unknown param type $cls for column '$colName'")
     }

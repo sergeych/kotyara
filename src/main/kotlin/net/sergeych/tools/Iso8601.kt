@@ -44,3 +44,8 @@ fun String.iso8601ToDate(): Date {
         this
     return Iso8601Tools.simpleDateParseFormat.parse(str)
 }
+
+fun String.iso8601ToZonedDateTime(): ZonedDateTime {
+    val d = iso8601ToDate()
+    return ZonedDateTime.ofInstant(d.toInstant(), ZoneId.systemDefault())
+}

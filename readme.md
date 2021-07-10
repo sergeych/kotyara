@@ -4,16 +4,16 @@ Following a known naming tradition:
 
 __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
 
-> this library is under initial development, not ready for evaluation.
+> this library is in alfa stage. Interfaces could be changed. It is internally used in pbeta-production sites, using Postgres JDBC connections.
 
-Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems.
+Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle.
 
 The idea is to let the same agility that provides scala anorm library without precompiling SQL as sqldelight does, lieaving all database logic conveniently put together in the kotlin source files.
 
-It also has built-in support for different read and write connections for heavy loaded data systems with write-master/read-slaves db setups.
+__Built-in support for different read and write connections__ for heavy loaded data systems with write-master/read-slaves db setups.
 
-It has owne simple and fast pool intended to detect some common pool usage errors (lake sharing pooled connections out of the usage context).
+__Fast connection pool__ It has one simple and fast pool intended to detect some common pool usage errors (lake sharing pooled connections out of the usage context).
 
-Build-in migrations support is being made by combining flyway and ActiveRecord approach, providinv versioned migrations, repeating migrations, source code migrations and platofrm-agnostic recovery support for failed migrations, what means rolling back transactinos where DDL supports it (e.g. with postgres), and copying the whole database where postgres is not yet used. This, though, requires `Schema` implementations for particular platforms, though we will provide generic one.
+__Built-in migrations support__ is being made by combining flyway and ActiveRecord approach, providing __versioned migrations__ and __repeating migrations__, also source code migrations and platofrm-agnostic recovery support for failed migrations, what means rolling back transactinos where DDL supports it (e.g. with postgres), and copying the whole database where postgres is not yet used. This, though, requires `Schema` implementations for particular platforms, though we will provide generic one.
 
 

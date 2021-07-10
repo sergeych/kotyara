@@ -1,6 +1,7 @@
 package net.sergeych.kotyara.db
 
 import net.sergeych.kotyara.*
+import net.sergeych.kotyara.tools.ConcurrentBag
 import net.sergeych.tools.Loggable
 import net.sergeych.tools.TaggedLogger
 import java.lang.IllegalStateException
@@ -48,21 +49,21 @@ class DbContext(
     inline fun <reified T : Any> query(sql: String, vararg params: Any): List<T> =
         withResultSet(true, sql, *params) { it.asMany(T::class) }
 
-    fun <T : Any> queryWith(sql: String, vararg params: Any, transformer: (ResultSet)->T): List<T> =
+    fun <T : Any> queryWith(sql: String, vararg params: Any, transformer: (ResultSet) -> T): List<T> =
         withResultSet(true, sql, *params) { rs ->
             val result = mutableListOf<T>()
-            while(rs.next()) result.add(transformer(rs))
+            while (rs.next()) result.add(transformer(rs))
             result
         }
 
-    inline fun <reified T: Any>queryColumn(sql: String, vararg params: Any): List<T> =
+    inline fun <reified T : Any> queryColumn(sql: String, vararg params: Any): List<T> =
         withResultSet(true, sql, *params) { rs ->
             val result = mutableListOf<T?>()
-            while (rs.next()) result.add(rs.getValue(T::class,1))
+            while (rs.next()) result.add(rs.getValue(T::class, 1))
             result.filterNotNull()
         }
 
-            fun sql(sql: String, vararg params: Any?): Int =
+    fun sql(sql: String, vararg params: Any?): Int =
         withWriteStatement(sql, *params) { it.executeUpdate() }
 
     /**
@@ -74,7 +75,7 @@ class DbContext(
      */
     fun <T> withResultSet(isRead: Boolean = true, sql: String, vararg params: Any?, f: (ResultSet) -> T): T {
         return withStatement2(isRead, sql, *params) {
-            val rs = if( isRead ) it.executeQuery() else  {
+            val rs = if (isRead) it.executeQuery() else {
                 it.execute()
                 it.resultSet
             }
@@ -133,13 +134,14 @@ class DbContext(
         f: (PreparedStatement) -> T
     ): T {
         debug("WRS $sql {${args.joinToString(",")}}")
-        val statement = readStatementCache.getOrPut(sql) {
-            readConnection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)
-        }
+        val statement = readStatementCache.remove(sql) ?: readConnection.prepareStatement(
+            sql,
+            PreparedStatement.RETURN_GENERATED_KEYS
+        )
         statement.clearParameters()
         args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
-        // important: we do not close statement (its cached), we should close resultsets instead
-        return f(statement)
+        // important: we do not close statement, we do cache it, so we should close result sets instead
+        return f(statement).also { readStatementCache[sql] = statement }
     }
 
     fun <T> withWriteStatement2(
@@ -148,18 +150,19 @@ class DbContext(
         f: (PreparedStatement) -> T
     ): T {
         debug("WWS $sql [${args.joinToString(",")}]")
-        val statement = writeStatementCache.getOrPut(sql) {
-            writeConnection.prepareStatement(sql)
-        }
+        val statement = writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
         statement.clearParameters()
         args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
-        return  f(statement)
+        return f(statement).also { writeStatementCache[sql] = statement }
     }
 
 
     private var savepointLevel = AtomicInteger(0)
 
+    /**
+     * @return true if this context is already inside some savepoint or transaction
+     */
     val inTransaction: Boolean get() = savepointLevel.get() > 0
 
     /**
@@ -205,11 +208,24 @@ class DbContext(
     inline fun <reified T : Any> select(): Relation<T> =
         Relation(this, T::class)
 
-    inline fun <reified T: Any> byId(id: Any): T? =
+    inline fun <reified T : Any> byId(id: Any): T? =
         select<T>().where("id = ?", id).first
 
-    inline fun <reified T: Any,>findBy(fieldName: String,value: Any?): T? =
+    inline fun <reified T : Any> byIdForUpdate(id: Any): T? =
+        select<T>().where("id = ?", id).forUpdate().first
+
+    inline fun <reified T : Any> findBy(fieldName: String, value: Any?): T? =
         select<T>().where("$fieldName = ?", value).first
+
+    /**
+     * Execute a closure in the transaction block with an instance if T-type record loaded using specified
+     * index column, like in [byId].
+     */
+    inline fun <reified T : Any, R> lockBy(column: String, value: Any, crossinline closure: (T) -> R): R {
+        val row = select<T>().where("$column = ?", value).forUpdate().first
+            ?: throw NotFoundException()
+        return transaction { closure(row) }
+    }
 
     private val closed = AtomicBoolean(false)
 
@@ -234,8 +250,8 @@ class DbContext(
     }
 
     companion object {
-        val readStatementCache = ConcurrentHashMap<String, PreparedStatement>()
-        val writeStatementCache = ConcurrentHashMap<String, PreparedStatement>()
+        val readStatementCache = ConcurrentBag<String, PreparedStatement>()
+        val writeStatementCache = ConcurrentBag<String, PreparedStatement>()
     }
 
 }
