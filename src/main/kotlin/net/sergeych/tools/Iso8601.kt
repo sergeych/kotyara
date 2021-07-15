@@ -29,7 +29,7 @@ class Iso8601Tools {
 val Date.iso8601: String get() = Iso8601Tools.simpleDateFormat.format(this)
 
 val ZonedDateTime.iso8601: String
-    get() = Iso8601Tools.instantFormat.format(this.truncatedTo(ChronoUnit.SECONDS))
+    get() = Iso8601Tools.instantFormat.format(this.truncatedTo(ChronoUnit.SECONDS))+"Z"
 
 val Instant.iso8601: String get() = Iso8601Tools.instantFormat.format(this.truncatedTo(ChronoUnit.SECONDS))
 
@@ -38,10 +38,12 @@ val Instant.iso8601: String get() = Iso8601Tools.instantFormat.format(this.trunc
  * @throws java.text.ParseException on error
  */
 fun String.iso8601ToDate(): Date {
-    val str = if (this.endsWith('Z'))
+    var str = if (this.endsWith('Z'))
         this.slice(0..(length - 2)) + "+0000"
     else
         this
+    if( "T" !in str)
+        str +="T00:00:00+0000"
     return Iso8601Tools.simpleDateParseFormat.parse(str)
 }
 
