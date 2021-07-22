@@ -121,7 +121,7 @@ class DbContext(
         vararg args: Any?,
         f: (PreparedStatement) -> T
     ): T {
-        return if (isRead)
+        return if (isRead && !inTransaction)
             withReadStatement2(sql, args = args, f)
         else
             withWriteStatement(sql, args = args, f)
@@ -150,11 +150,20 @@ class DbContext(
         f: (PreparedStatement) -> T
     ): T {
         debug("WWS $sql [${args.joinToString(",")}]")
-        val statement = writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
+        val isInTransaction = inTransaction
+        val statement = if( isInTransaction ) {
+            debug("in transaction, cache will not be used")
+            writeConnection.prepareStatement(sql)
+        }
+        else
+            writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
         statement.clearParameters()
         args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
-        return f(statement).also { writeStatementCache[sql] = statement }
+        return f(statement).also {
+            if( isInTransaction ) statement.close()
+            else writeStatementCache[sql] = statement
+        }
     }
 
 
@@ -175,10 +184,10 @@ class DbContext(
     }
 
     fun <T> savepoint(f: () -> T): T {
-        savepointLevel.incrementAndGet()
         val was = writeConnection.autoCommit
         writeConnection.autoCommit = false
         val sp = writeConnection.setSavepoint()
+        savepointLevel.incrementAndGet()
         try {
             debug("running inside the savepoint $sp")
             val result = f()
@@ -190,8 +199,9 @@ class DbContext(
             writeConnection.rollback(sp)
             throw x
         } finally {
-            writeConnection.autoCommit = was
             savepointLevel.decrementAndGet()
+            debug("cleaning savepoint $sp ot level ${savepointLevel.get()}")
+            writeConnection.autoCommit = was
         }
     }
 

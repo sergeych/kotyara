@@ -19,10 +19,11 @@ class Database(
     private var _maxConnections: Int = 30
 ) : Loggable by TaggedLogger("DBSE") {
 
-    constructor(writeUrl: String, readUrl: String = writeUrl) :
+    constructor(writeUrl: String, readUrl: String = writeUrl, maxConnections: Int = 30) :
             this(
                 { DriverManager.getConnection(writeUrl) },
-                { DriverManager.getConnection(readUrl) }
+                { DriverManager.getConnection(readUrl) },
+                _maxConnections = maxConnections
             )
 
     private var pause = false
@@ -37,6 +38,12 @@ class Database(
 
     var activeConnections = 0
         private set
+
+    var leakedConnections = 0
+        private set
+
+    val pooledConnections: Int
+        get() = pool.size
 
     private val creationLock = Object()
 
@@ -53,8 +60,11 @@ class Database(
                         DbContext(readConnectionFactory(), writeConnectionFactory())
                     )
                     activeConnections++
-                } else
+                    info("Connection added: $activeConnections / $maxConnections / $leakedConnections")
+                } else {
+                    warning("Connection pool is empty, active: $activeConnections")
                     throw NoMoreConnectionsException()
+                }
             }
         } while (true)
     }
@@ -64,9 +74,19 @@ class Database(
             ct.beforeRelease()
             pool.add(ct)
         } catch (e: Exception) {
-            if (e !is InterruptedException)
-                destroyContext(ct)
-            throw e
+            if (e is InterruptedException)
+                throw e
+            error("exception in releaseContext, this could leak connection $ct", e)
+            activeConnections--
+            leakedConnections++
+            info("reset connections data: $activeConnections / $maxConnections / $leakedConnections")
+            try {
+                ct.close()
+                info("leaked connection has been closed, it will cause error in its user(s)")
+            } catch(e: Exception) {
+                if( e is InterruptedException) throw e
+                error("failed to close leaked connection $ct")
+            }
         }
     }
 
@@ -80,15 +100,6 @@ class Database(
         val ct = getContext()
         return try {
             block(ct)
-        } catch (x: SQLException) {
-//            error("withContext failed with SQLException, we'll close connection", x)
-            throw x
-        } catch (x: InterruptedException) {
-            warning("interrupted exception in pool: leaking context")
-            throw x
-        } catch (x: Throwable) {
-            warning("Unexpected exception in withContext:, releasing it ($x)")
-            throw x
         } finally {
             releaseContext(ct)
         }
