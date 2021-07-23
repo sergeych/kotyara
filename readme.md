@@ -1,6 +1,6 @@
 # KOTYARA library
 
-> Incoming changes wadning.
+> Incoming changes warning.
 
 Pleas be informed that using of the migrator as a separate part from the database is considered rewriting, as database pausing with real database drivers
 cause hangups, so we are moving to explicetely and mandatorlily migrate any Database instance pror to any usage.
