@@ -20,7 +20,7 @@ class DbContext(
     private val readConnection: Connection
         get() = if (inTransaction) writeConnection else _readConnection
 
-    inline fun <reified T : Any> queryOne(sql: String, vararg params: Any): T? {
+    inline fun <reified T : Any> queryOne(sql: String, vararg params: Any?): T? {
         return withResultSet(true, sql, *params) { rs ->
             if (rs.next())
                 rs.getValue(1)
