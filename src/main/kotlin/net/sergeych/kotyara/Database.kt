@@ -105,6 +105,16 @@ class Database(
         }
     }
 
+    suspend fun <T>asyncContext(block: suspend (DbContext) -> T ): T {
+        val ct = getContext()
+        return try {
+            block(ct)
+        }
+        finally {
+            releaseContext(ct)
+        }
+    }
+
     fun <T> inContext(block: DbContext.() -> T): T {
         return withContext { it.block() }
     }
@@ -164,7 +174,7 @@ class Database(
         }
     }
 
-    fun migrateWithResources(klass: Class<*>, schema: Schema, migrationPath: String = "db_migrations") {
+    fun migrateWithResources(klass: Class<*>, schema: Schema, migrationPath: String = "/db_migrations") {
         schema.migrateWithResources(klass, this, migrationPath)
     }
 

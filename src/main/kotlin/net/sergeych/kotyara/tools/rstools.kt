@@ -21,6 +21,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         Boolean::class -> getBoolean(colName)
         Double::class -> getDouble(colName)
         Float::class -> getFloat(colName)
+        ByteArray::class -> getBytes(colName)
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
