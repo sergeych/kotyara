@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "0.1.2"
+version = "0.1.3"
 
 repositories {
     mavenCentral()
@@ -45,18 +45,4 @@ tasks.register<Copy>("localRelease") {
     into("$rootDir/../jarlib")
     rename { "kotyara.jar" }
 }
-
-
-
-//val kotyaraJars by configurations.creating {
-//    isCanBeConsumed = true
-//    isCanBeResolved = false
-//    // If you want this configuration to share the same dependencies, otherwise omit this line
-//    extendsFrom(configurations["implementation"], configurations["runtimeOnly"])
-//}
-
-//artifacts {
-//    add("kotyara", kotyaraJars)
-//}
-//
 
