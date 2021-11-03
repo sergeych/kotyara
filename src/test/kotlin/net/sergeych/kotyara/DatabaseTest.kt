@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.time.ZonedDateTime
+import kotlin.test.assertIs
 
 
 internal class DatabaseTest {
@@ -42,7 +43,7 @@ internal class DatabaseTest {
         val db = testDb()
         db.inContext {
 
-            var rows = query<SimpleSnake>("select 'bbar' as foo, 42 as bar, (now()::timestamp) as created_at")
+            val rows = query<SimpleSnake>("select 'bbar' as foo, 42 as bar, (now()::timestamp) as created_at")
             println(rows)
             println(rows[0].created_at.iso8601)
 
@@ -109,7 +110,9 @@ internal class DatabaseTest {
             assertEquals(3, all.size)
             val last = all.last()
             assertEquals("Unix Geek", last.name)
-            var first = select<Person>().first!!
+            kotlin.test.assertNotNull(last.birthDate)
+            assertIs<LocalDate>(last.birthDate)
+            val first = select<Person>().first!!
             println(first)
             assertEquals("M",first.gender)
             assertEquals("John Doe",first.name)
@@ -120,17 +123,23 @@ internal class DatabaseTest {
             assertEquals(1, all.size)
             assertEquals("Jane Doe", all[0].name)
 
-            val x = select<Person>().where("gender=?", "&").first
-            println(x)
+            var x = select<Person>().where("gender=?", "&").first
+            kotlin.test.assertNull(x)
 
+            x = select<Person>().where("birth_date=?", last.birthDate).first
+            assertEquals(last.id, x?.id)
+// postgres: NULL != NULL! this will not work
+//            val xx = select<Person>().where("birth_date=?", null).all
+//            assertEquals(2, xx.size)
+
+            val xx = select<Person>().where("birth_date" to null).all
+            assertEquals(2, xx.size)
+            assertEquals(setOf("John Doe", "Jane Doe"), xx.map { it.name }.toSet())
 
         }
     }
 
-    private fun testDb(): Database {
-        val db = Database("jdbc:postgresql://localhost/kotyara-test")
-        return db
-    }
+    private fun testDb()= Database("jdbc:postgresql://localhost/kotyara-test")
 
     @Test
     fun migrations1() {

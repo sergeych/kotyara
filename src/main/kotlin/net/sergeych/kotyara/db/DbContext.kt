@@ -225,7 +225,7 @@ class DbContext(
         select<T>().where("id = ?", id).forUpdate().first
 
     inline fun <reified T : Any> findBy(fieldName: String, value: Any?): T? =
-        select<T>().where("$fieldName = ?", value).first
+        select<T>().where(fieldName to value).first
 
     /**
      * Execute a closure in the transaction block with an instance if T-type record loaded using specified

@@ -26,9 +26,21 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
     private val statementParams = mutableListOf<Any?>()
     private val order = mutableListOf<String>()
 
-    fun where(whereClause: String,vararg params: Any?): Relation<T> {
+    fun where(whereClause: String,vararg params: Any): Relation<T> {
         whereClauses.add(whereClause)
         statementParams.addAll(params)
+        return this
+    }
+
+    fun where(vararg pairs: Pair<String,Any?>): Relation<T> {
+        for( (name, value) in pairs) {
+            if( value == null )
+                whereClauses.add("$name is null")
+            else {
+                whereClauses.add("$name = ?")
+                statementParams.add(value)
+            }
+        }
         return this
     }
 
