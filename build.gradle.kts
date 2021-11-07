@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "0.1.4"
+version = "0.1.5"
 
 repositories {
     mavenCentral()
@@ -15,7 +15,7 @@ repositories {
 dependencies {
     implementation(kotlin("reflect"))
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:42.2.20")
+    testImplementation("org.postgresql:postgresql:42.3.1")
 }
 
 tasks.test {
@@ -23,7 +23,7 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile>() {
-    kotlinOptions.jvmTarget = "11"
+    kotlinOptions.jvmTarget = "1.8"
 }
 
 tasks.jar {
