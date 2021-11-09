@@ -1,6 +1,7 @@
 package net.sergeych.kotyara
 
 import net.sergeych.tools.camelToSnakeCase
+import java.math.BigDecimal
 import java.sql.ResultSet
 import java.time.Instant
 import java.time.LocalDate
@@ -20,6 +21,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         Date::class -> getTimestamp(colName)
         Boolean::class -> getBoolean(colName)
         Double::class -> getDouble(colName)
+        BigDecimal::class -> getBigDecimal(colName)
         Float::class -> getFloat(colName)
         ByteArray::class -> getBytes(colName)
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()
