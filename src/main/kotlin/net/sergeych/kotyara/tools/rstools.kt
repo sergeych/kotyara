@@ -28,8 +28,20 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
         }
-        else ->
-            throw DbException("unknown param type $cls for column '$colName'")
+        else -> {
+            if( cls.java.isEnum ) {
+                val x = getObject(colName)
+                if( x is Number) {
+                    val ordinal = x.toInt()
+                    cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.ordinal == ordinal }
+                }
+                else {
+                    cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.name == x.toString() }
+                }
+            }
+            else
+                throw DbException("unknown param type $cls for column '$colName'")
+        }
     }
     @Suppress("UNCHECKED_CAST")
     return if (wasNull()) null else (value as T)

@@ -15,6 +15,13 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
             else
                 setString(n, x)
         }
+        is Enum<*> -> {
+            if (metaData?.getColumnTypeName(n)?.startsWith("int") == true)
+                setInt(n, x.ordinal)
+            else
+                setString(n, x.name)
+
+        }
         is Int -> setInt(n, x)
         is Long -> setLong(n, x)
         is Float -> setFloat(n, x)

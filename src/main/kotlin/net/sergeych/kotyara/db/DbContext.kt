@@ -29,7 +29,7 @@ class DbContext(
         }
     }
 
-    inline fun <reified T : Any> updateQueryOne(sql: String, vararg params: Any): T? {
+    inline fun <reified T : Any> updateQueryOne(sql: String, vararg params: Any?): T? {
         return withResultSet(false, sql, *params) { rs ->
             if (rs.next())
                 rs.getValue(1)
