@@ -151,17 +151,16 @@ class DbContext(
     ): T {
         debug("WWS $sql [${args.joinToString(",")}]")
         val isInTransaction = inTransaction
-        val statement = if( isInTransaction ) {
+        val statement = if (isInTransaction) {
             debug("in transaction, cache will not be used")
             writeConnection.prepareStatement(sql)
-        }
-        else
+        } else
             writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
         statement.clearParameters()
         args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
         return f(statement).also {
-            if( isInTransaction ) statement.close()
+            if (isInTransaction) statement.close()
             else writeStatementCache[sql] = statement
         }
     }
@@ -206,11 +205,15 @@ class DbContext(
     }
 
     fun executeAll(sqls: String) {
-        for (line in sqls.split(";\n").filter { it.isNotBlank() }) {
-            debug("EXEC SQL: ${line.split("\n").joinToString("\n\t")}")
-            writeConnection.prepareStatement(line).use {
-                val result = it.executeUpdate()
-                debug("EXECUTED: $result")
+        for (block in parseBlocks(sqls)) {
+            val commands = if( block.isBlock ) listOf(block.value) else {
+                block.value.split(";\n").filter { it.isNotBlank() }
+            }
+            for (line in commands) {
+                writeConnection.prepareStatement(line).use {
+                    val result = it.executeUpdate()
+                    debug("EXECUTED: $result")
+                }
             }
         }
     }
@@ -264,4 +267,33 @@ class DbContext(
         val writeStatementCache = ConcurrentBag<String, PreparedStatement>()
     }
 
+}
+
+private val blockRe =
+    Regex("-- begin block --\\s*\\n(.*?)\\n-- end block --", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
+
+/**
+ * Result of parsing block-containting sql script, see [parseBlocks]
+ */
+data class ScriptBlock(val value: String,val isBlock: Boolean)
+
+/**
+ * Parse multiline text to pieces delimited by "-- start block -- and -- end block -- strings.
+ * resulting array contains all the text before, inside and after such delimiters as strings in array. Blocks are
+ * represented be [ScriptBlock] structure to keep a flag that the blokc value should be treated as whole (isBlock)
+ */
+fun parseBlocks(blocksString: String): List<ScriptBlock> {
+    var index = 0
+    val result = mutableListOf<ScriptBlock>()
+    do {
+        val match = blockRe.find(blocksString, index)
+        if (match == null) break
+        val r = match.range
+        result.add(ScriptBlock(blocksString.substring(index, r.first).trim(), false))
+        result.add(ScriptBlock(match.groupValues[1], true))
+        index = r.endInclusive + 1
+    } while (true)
+    if (index < blocksString.length)
+        result.add(ScriptBlock(blocksString.substring(index).trim(), false))
+    return result.filter { it.value.trim() != "" }
 }
