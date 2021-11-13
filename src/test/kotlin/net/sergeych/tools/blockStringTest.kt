@@ -1,5 +1,6 @@
 package net.sergeych.tools
 
+import net.sergeych.kotyara.db.ScriptBlock
 import net.sergeych.kotyara.db.parseBlocks
 import org.junit.jupiter.api.Test
 
@@ -15,12 +16,12 @@ internal class blockStringTest {
             bar
             baz
         """.trimIndent()
-        assertEquals(src, parseBlocks(src)[0])
+        assertEquals(ScriptBlock(src, false), parseBlocks(src)[0])
     }
 
     @Test
     fun oneBlock() {
-        var bb = parseBlocks(
+        val blocks = parseBlocks(
             """
                 foo
                 -- begin block --    
@@ -30,12 +31,12 @@ internal class blockStringTest {
                 tail
             """.trimIndent()
         )
-        assertEquals("foo", bb[0])
-        assertEquals("bar\nbaz", bb[1])
-        assertEquals("tail", bb[2])
-        assertEquals(3, bb.size)
+        assertEquals(ScriptBlock("foo",false), blocks[0])
+        assertEquals(ScriptBlock("bar\nbaz", true), blocks[1])
+        assertEquals(ScriptBlock("tail",false), blocks[2])
+        assertEquals(3, blocks.size)
 
-        bb = parseBlocks(
+        var bb = parseBlocks(
             """
                 -- begin block --    
                 bar
@@ -43,7 +44,7 @@ internal class blockStringTest {
                 -- end block --
                 tail
             """.trimIndent()
-        )
+        ).map{it.value}
         println(bb)
         assertEquals("bar\nbaz", bb[0])
         assertEquals("tail", bb[1])
@@ -58,7 +59,7 @@ internal class blockStringTest {
                 baz
                 -- end block --
             """.trimIndent()
-        )
+        ).map{it.value}
         assertEquals("first1\nfirst2", bb[0])
         assertEquals("bar\nbaz", bb[1])
         assertEquals(2, bb.size)
@@ -79,7 +80,7 @@ internal class blockStringTest {
                 42
                 -- end block --
             """.trimIndent()
-        )
+        ).map{it.value}
         assertEquals("foo", bb[0])
         assertEquals("bar\nbaz", bb[1])
         assertEquals("tail1", bb[2])
@@ -102,13 +103,12 @@ internal class blockStringTest {
                 
                 tail2
             """.trimIndent()
-        )
+        ).map{it.value}
         assertEquals("foo", bb[0])
         assertEquals("bar\nbaz", bb[1])
         assertEquals("tail1", bb[2])
         assertEquals("foobar\n42", bb[3])
-        assertEquals("tail2", bb[3])
+        assertEquals("tail2", bb[4])
         assertEquals(5, bb.size)
-
     }
 }
