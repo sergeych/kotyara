@@ -20,6 +20,10 @@ class DbContext(
     private val readConnection: Connection
         get() = if (inTransaction) writeConnection else _readConnection
 
+    override fun toString(): String {
+        return "DBC($_readConnection,$writeConnection)"
+    }
+
     inline fun <reified T : Any> queryOne(sql: String, vararg params: Any?): T? {
         return withResultSet(true, sql, *params) { rs ->
             if (rs.next())
@@ -65,6 +69,9 @@ class DbContext(
 
     fun sql(sql: String, vararg params: Any?): Int =
         withWriteStatement(sql, *params) { it.executeUpdate() }
+
+    fun execute(sql: String, vararg params: Any?) =
+        withWriteStatement(sql, *params) { it.execute() }
 
     /**
      * Calls `f` with a ResultSet prepositioned to the first row (ready to use) or returns null without
@@ -247,9 +254,12 @@ class DbContext(
 
     fun close() {
         if (!closed.getAndSet(true)) {
-            if (writeConnection != readConnection)
+            if (writeConnection !== readConnection) {
                 ignoreExceptions { writeConnection.close() }
-            ignoreExceptions { readConnection.close() }
+            }
+            ignoreExceptions {
+                readConnection.close()
+            }
             debug("DbContext $this is closed")
         }
     }
@@ -258,14 +268,14 @@ class DbContext(
 
     fun <T> transaction(block: () -> T): T = savepoint(block)
 
-    init {
-        debug("DbContext $this is allocated")
-    }
+//    init {
+//        debug("DbContext $this is allocated")
+//    }
 
-    companion object {
+//    companion object {
         val readStatementCache = ConcurrentBag<String, PreparedStatement>()
         val writeStatementCache = ConcurrentBag<String, PreparedStatement>()
-    }
+//    }
 
 }
 

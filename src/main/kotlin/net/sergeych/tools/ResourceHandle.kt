@@ -1,7 +1,6 @@
 package net.sergeych.tools
 
 import net.sergeych.tools.ResourceHandle.Companion.list
-import java.io.File
 import java.io.FileNotFoundException
 import java.net.URI
 import java.nio.file.FileSystems
@@ -11,6 +10,7 @@ import java.nio.file.Paths
 import kotlin.io.path.isDirectory
 import kotlin.io.path.pathString
 import kotlin.io.path.readText
+import kotlin.streams.toList
 
 /**
  * Handler to retrieve stored resource in a classpath, also in JAR. Use [list] to get a list if handles.
@@ -34,7 +34,7 @@ class ResourceHandle(val name: String, val text: String) {
 
             fun walk(myPath: Path): List<ResourceHandle> =
                 Files.walk(myPath, 1).use {
-                    it.toList().mapNotNull { r ->
+                    it.toList().mapNotNull { r: Path ->
                         val index = r.pathString.indexOf(root)
                         if (r.isDirectory() || index < 0)
                             null

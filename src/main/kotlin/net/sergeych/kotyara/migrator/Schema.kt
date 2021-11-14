@@ -1,5 +1,6 @@
 package net.sergeych.kotyara
 
+import kotlinx.coroutines.runBlocking
 import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.migrator.MigrationException
 import net.sergeych.kotyara.migrator.Migrations
@@ -71,33 +72,34 @@ abstract class Schema(private val useTransactions: Boolean) :
             // note beforeall is called before any connection will be created
             // and afler all connections (contexts) will be closed
             beforeAll()
-            try {
-                db.withContext {
-                    prepareMigrationsTable(it)
-                    performMigrations(it, migrations)
+            runBlocking {
+                try {
+                    db.asyncContext {
+                        prepareMigrationsTable(it)
+                        performMigrations(it, migrations)
+                    }
+                    // migrations passed, just fine
+                    if (!useTransactions)
+                        db.closeAllContexts(Duration.ofMinutes(3))
+                    // and again, after all is called when everything is done and all connections (contexts) are
+                    // closed
+                    onSuccess()
+                } catch (x: Exception) {
+                    // migrations failed. now we might need to restore dabase from a file copy, if DDL transactions
+                    // are not supported. Cleanup and rethrow
+                    if (!useTransactions)
+                        db.closeAllContexts(Duration.ofMinutes(3))
+                    onFailure()
+                    throw x
                 }
-                // migrations passed, just fine
-                if (!useTransactions)
-                    db.closeAllContexts(Duration.ofMinutes(3))
-                // and again, after all is called when everything is done and all connections (contexts) are
-                // closed
-                onSuccess()
-            } catch (x: Exception) {
-                // migrations failed. now we might need to restore dabase from a file copy, if DDL transactions
-                // are not supported. Cleanup and rethrow
-                if (!useTransactions)
-                    db.closeAllContexts(Duration.ofMinutes(3))
-                onFailure()
-                throw x
+                if (useTransactions)
+                    doMigrations(externalDb)
+                else
+                    externalDb.closeAllContexts(Duration.ofMinutes(3)) { db ->
+                        doMigrations(db)
+                    }
             }
         }
-
-        if (useTransactions)
-            doMigrations(externalDb)
-        else
-            externalDb.closeAllContexts(Duration.ofMinutes(3)) { db ->
-                doMigrations(db)
-            }
     }
 
 

@@ -1,5 +1,6 @@
 package net.sergeych.kotyara
 
+import kotlinx.coroutines.*
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.tools.Logger
 import net.sergeych.tools.iso8601
@@ -8,7 +9,11 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.time.ZonedDateTime
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.timer
+import kotlin.coroutines.coroutineContext
 import kotlin.test.assertIs
+import kotlin.time.measureTime
 
 
 internal class DatabaseTest {
@@ -31,11 +36,13 @@ internal class DatabaseTest {
         }
     }
 
-    data class Simple(val foo: String, val bar: Int,val createdAt: ZonedDateTime)
-    data class SimpleSnake(val foo: String, val bar: Int,val created_at: ZonedDateTime)
+    data class Simple(val foo: String, val bar: Int, val createdAt: ZonedDateTime)
+    data class SimpleSnake(val foo: String, val bar: Int, val created_at: ZonedDateTime)
 
-    data class Person(val id: Long,val name: String,val gender: String,
-                      val birthDate: LocalDate?,val createdAt: ZonedDateTime)
+    data class Person(
+        val id: Long, val name: String, val gender: String,
+        val birthDate: LocalDate?, val createdAt: ZonedDateTime
+    )
 
 
     @Test
@@ -77,9 +84,11 @@ internal class DatabaseTest {
                 """.trimIndent()
             )
 
-            val i = updateQueryRow<Person>("""
+            val i = updateQueryRow<Person>(
+                """
                 insert into persons(name,gender) values('Jimmy Gordon', 'M') returning *;
-                """.trimIndent())
+                """.trimIndent()
+            )
             println(i)
         }
     }
@@ -89,7 +98,8 @@ internal class DatabaseTest {
         Logger.connectStdout()
 
         testDb().inContext {
-            executeAll("""
+            executeAll(
+                """
                 drop table if exists persons;
                 
                 create table persons(
@@ -103,7 +113,8 @@ internal class DatabaseTest {
                 insert into persons(name, gender) values('John Doe', 'M');    
                 insert into persons(name, gender) values('Jane Doe', 'F');   
                 insert into persons(name, gender, birth_date) values('Unix Geek', 'M', '06.05.1970'::date);   
-                """.trimIndent())
+                """.trimIndent()
+            )
 
 
             var all = select<Person>().all
@@ -114,8 +125,8 @@ internal class DatabaseTest {
             assertIs<LocalDate>(last.birthDate)
             val first = select<Person>().first!!
             println(first)
-            assertEquals("M",first.gender)
-            assertEquals("John Doe",first.name)
+            assertEquals("M", first.gender)
+            assertEquals("John Doe", first.name)
             all = select<Person>().where("gender = 'F'").all
             assertEquals(1, all.size)
             assertEquals("Jane Doe", all[0].name)
@@ -139,7 +150,56 @@ internal class DatabaseTest {
         }
     }
 
-    private fun testDb()= Database("jdbc:postgresql://localhost/kotyara-test")
+    private fun testDb(maxConnections: Int = 10) =
+        Database("jdbc:postgresql://localhost/kotyara-test", maxConnections)
+
+    @Test
+    fun manyConnections() {
+        val N = 5
+        val db = testDb(3)
+        val x = AtomicInteger(0)
+        Logger.connectStdout(Logger.Severity.DEBUG)
+        runBlocking {
+            for (rep in 1..1) {
+                bm {
+                    coroutineScope {
+                        val all = mutableListOf<Job>()
+                        for (i in 1..N) {
+                            all.add(launch(start = CoroutineStart.DEFAULT) {
+                                db.asyncContext {
+                                    it.execute("select pg_sleep(0.31)")
+//                                    it.execute("select 22")
+                                    x.incrementAndGet()
+                                }
+                            })
+                        }
+                        for (xx in all) xx.join()
+                    }
+                }
+            }
+            println("sequental time would be ${N * 300}")
+            delay(3000)
+            bm {
+                coroutineScope {
+                    val all = mutableListOf<Job>()
+                    for (i in 1..N) {
+                        all.add(launch(start = CoroutineStart.DEFAULT) {
+                            db.asyncContext {
+                                it.execute("select pg_sleep(0.31)")
+//                                it.execute("select 22")
+                                x.incrementAndGet()
+                            }
+                        })
+                    }
+                    for (xx in all) xx.join()
+                }
+            }
+            println("done-1")
+            delay(700)
+        }
+        println("done-2")
+//        assertEquals(N, x.get())
+    }
 
     @Test
     fun migrations1() {

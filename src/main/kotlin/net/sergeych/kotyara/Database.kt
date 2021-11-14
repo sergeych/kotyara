@@ -1,39 +1,62 @@
 package net.sergeych.kotyara
 
+import javafx.application.Application.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
 import net.sergeych.kotyara.db.DbContext
+import net.sergeych.kotyara.tools.AsyncNotifier
+import net.sergeych.kotyara.tools.UnitNotifier
+import net.sergeych.kotyara.tools.withReentrantLock
 import net.sergeych.tools.Loggable
 import net.sergeych.tools.TaggedLogger
 import java.sql.Connection
 import java.sql.DriverManager
-import java.sql.SQLException
 import java.time.Duration
+import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeoutException
+import kotlin.coroutines.coroutineContext
+
 
 typealias ConnectionFactory = () -> Connection
 
 class Database(
     private val writeConnectionFactory: ConnectionFactory,
-    private val readConnectionFactory: ConnectionFactory = writeConnectionFactory,
+    _readConnectionFactory: ConnectionFactory? = null,
 //    var maxIdleConnections: Int = 5,
     private var _maxConnections: Int = 30
 ) : Loggable by TaggedLogger("DBSE") {
 
-    constructor(writeUrl: String, readUrl: String = writeUrl, maxConnections: Int = 30) :
+    constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30) :
             this(
                 { DriverManager.getConnection(writeUrl) },
                 { DriverManager.getConnection(readUrl) },
                 _maxConnections = maxConnections
             )
 
+    constructor(writeUrl: String, maxConnections: Int = 30) :
+            this(
+                { DriverManager.getConnection(writeUrl) },
+                null,
+                _maxConnections = maxConnections
+            )
+
+    private val readConnectionFactory: ConnectionFactory = _readConnectionFactory ?: writeConnectionFactory
+
     private var pause = false
     var isClosed = false
         private set
+
+    private var dispatcher = ScheduledThreadPoolExecutor(_maxConnections * 4 / 3)
+        .asCoroutineDispatcher()
 
     var maxConnections: Int
         get() = if (pause || isClosed) 0 else _maxConnections
         set(value) {
             _maxConnections = value
+            (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize = _maxConnections * 4 / 3
         }
 
     var activeConnections = 0
@@ -45,75 +68,105 @@ class Database(
     val pooledConnections: Int
         get() = pool.size
 
-    private val creationLock = Object()
 
-    private var pool = ConcurrentLinkedQueue<DbContext>()
+    private var pool = mutableListOf<DbContext>()
+    private var mutex = Mutex()
 
-    private fun getContext(): DbContext {
+    private suspend fun <T> inMutex(block: suspend () -> T): T =
+        mutex.withReentrantLock {
+            block()
+        }
+
+    private suspend fun getContext(): DbContext {
         if (isClosed) throw DatabaseIsClosedException()
         if (pause) throw DatabasePausedException()
-        do {
-            pool.poll()?.let { return it }
-            synchronized(creationLock) {
-                if (activeConnections < maxConnections) {
-                    pool.add(
-                        DbContext(readConnectionFactory(), writeConnectionFactory())
-                    )
-                    activeConnections++
-                    info("Connection added: $activeConnections / $maxConnections / $leakedConnections")
-                } else {
-                    warning("Connection pool is empty, active: $activeConnections")
-                    throw NoMoreConnectionsException()
-                }
+        mutex.lock()
+        try {
+            if (pool.isNotEmpty()) return pool.removeLast()
+            if (activeConnections < maxConnections * 2) {
+                val dbc = if (readConnectionFactory == writeConnectionFactory) {
+                    val connection = readConnectionFactory()
+                    DbContext(connection, connection)
+                } else DbContext(readConnectionFactory(), writeConnectionFactory())
+                activeConnections++
+                (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize++
+                info("Connection added: $activeConnections / $maxConnections / $leakedConnections")
+                return dbc
+            } else {
+                warning("Connection pool is empty, active: $activeConnections")
+                throw NoMoreConnectionsException()
             }
-        } while (true)
+        } finally {
+            mutex.unlock()
+        }
     }
 
-    private fun releaseContext(ct: DbContext) {
+    private suspend fun releaseContext(ct: DbContext) {
         try {
             ct.beforeRelease()
-            pool.add(ct)
+            inMutex { pool.add(ct) }
         } catch (e: Exception) {
             if (e is InterruptedException)
                 throw e
             error("exception in releaseContext, this could leak connection $ct", e)
-            activeConnections--
-            leakedConnections++
+            inMutex {
+                activeConnections--
+                leakedConnections++
+            }
             info("reset connections data: $activeConnections / $maxConnections / $leakedConnections")
             try {
                 ct.close()
                 info("leaked connection has been closed, it will cause error in its user(s)")
-            } catch(e: Exception) {
-                if( e is InterruptedException) throw e
+            } catch (e: Exception) {
+                if (e is InterruptedException) throw e
                 error("failed to close leaked connection $ct")
             }
         }
     }
 
-    private fun destroyContext(ct: DbContext) {
+    private suspend fun destroyContext(ct: DbContext) {
         ct.beforeRelease()
-        ct.close()
-        synchronized(creationLock) { activeConnections-- }
+        inMutex { ct.close() }
+        activeConnections--
+        (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize++
     }
 
     fun <T> withContext(block: (DbContext) -> T): T {
-        val ct = getContext()
-        return try {
-            block(ct)
-        } finally {
-            releaseContext(ct)
-        }
+        return runBlocking { asyncContext { block(it) } }
     }
 
-    suspend fun <T>asyncContext(block: suspend (DbContext) -> T ): T {
-        val ct = getContext()
-        return try {
-            block(ct)
+    /**
+     * A safe bridge to blocking operations.
+     *
+     * Executes a coroutine block allocating [DbContext] fot it  in using special build-in dispatcher that is configured
+     * to work well with current [maxConnections] value and prevent threads leaking under high load. This is
+     * the preferred way iof using the database in high-load environment. This methoud should not be used to permanently
+     * allocate context (e.g. not usable for `listen`-type operations.
+     *
+     * It means, that calling couroutine will suspend until the connection and the service thread will be available
+     * (it normally happens in the same time), then suspends until the block will be executed.
+     *
+     * __Do not use the context argument outside the block!__.
+     */
+    suspend fun <T> asyncContext(block: suspend (DbContext) -> T): T =
+        coroutineScope {
+            async(dispatcher) {
+                val ct = getContext()
+                try {
+                    block(ct)
+                } catch (t: Throwable) {
+                    error("unexpected error in asyncContext, context $ct", t)
+                    throw t
+                } finally {
+                    launch {
+                        // if something went bad the current context may be cancelling and release won't work,
+                        // so we release it in a separate coroutine
+                        releaseContext(ct)
+                    }
+                }
+            }.await()
         }
-        finally {
-            releaseContext(ct)
-        }
-    }
+
 
     fun <T> inContext(block: DbContext.() -> T): T {
         return withContext { it.block() }
@@ -129,21 +182,22 @@ class Database(
      * @param maxWaitTime how long to wait for all connections to close.
      * @throws InterruptedException if all connections could not be closed during the specified timeout
      */
-    fun closeAllContexts(
+    suspend fun closeAllContexts(
         maxWaitTime: Duration = Duration.ofSeconds(3),
         exclusiveBlock: ((Database) -> Unit)? = null
     ) {
-        synchronized(creationLock) {
+        inMutex {
             if (pause) throw IllegalStateException("pause is already in effect")
             pause = true
         }
         try {
             debug("closeAllContexts() started")
-            synchronized(keeperLock) { keeperLock.notify() }
-            synchronized(closeAllEvent) { closeAllEvent.wait(maxWaitTime.toMillis()) }
+            dispatcher.close()
+            keeperLock.pulse(Unit)
+            closeAllEvent.await(maxWaitTime.toMillis())
             if (activeConnections > 0)
                 throw TimeoutException("closeAllConnections: some connections could not be closed")
-            while (pool.isNotEmpty()) destroyContext(pool.remove())
+            while (pool.isNotEmpty()) destroyContext(pool.removeLast())
             debug("closeAllConnection() performed successfully")
             exclusiveBlock?.let { handler ->
                 val db = Database(writeConnectionFactory, readConnectionFactory)
@@ -162,7 +216,7 @@ class Database(
      * @param waitTime if non-zero, if blocks until all contexts are freed and closed or timeout expires, throwing
      *      [TimeoutException]. Note that in this case existing contexts will not be immediately released.
      */
-    fun close(waitTime: Duration = Duration.ZERO) {
+    suspend fun close(waitTime: Duration = Duration.ZERO) {
         if (isClosed) throw DatabaseIsClosedException()
         isClosed = true
         if (!(waitTime.isNegative || waitTime.isZero)) {
@@ -170,7 +224,7 @@ class Database(
             debug("close(): all connections are closed")
         } else {
             // keeper thread will close it all
-            keeperLock.notify()
+            keeperLock.pulse()
         }
     }
 
@@ -178,24 +232,30 @@ class Database(
         schema.migrateWithResources(klass, this, migrationPath)
     }
 
-    private val keeperLock = Object()
-    private val closeAllEvent = Object()
+    private val keeperLock = UnitNotifier()
+    private val closeAllEvent = UnitNotifier()
 
     init {
-        Thread {
-            debug("starting keeper thread for $this")
+        CoroutineScope(Dispatchers.Unconfined).launch {
+            debug("starting keeper coroutine in scope $this")
             try {
                 while (!isClosed) {
-                    synchronized(keeperLock) {
-                        keeperLock.wait(if (maxConnections < activeConnections) 200 else 10000)
-                    }
+                    keeperLock.await(if (maxConnections < activeConnections) 200 else 1000)
                     var counter = 0
-//                    debug("keeper $this step: active=$activeConnections max=$maxConnections pool=${pool.size}")
-                    while (activeConnections > maxConnections && pool.isNotEmpty())
-                        pool.remove()?.let { destroyContext(it); counter++ }
+                    debug("keeper $this step: active=$activeConnections max=$maxConnections pool=${pool.size}")
+                    inMutex {
+                        while (activeConnections > maxConnections && pool.isNotEmpty())
+                            pool.removeLastOrNull()?.let { ct ->
+                                try {
+                                    destroyContext(ct); counter++
+                                } catch (x: Throwable) {
+                                    error("Exception while destroying context by keeper: $ct")
+                                }
+                            }
+                    }
                     if (counter > 0)
                         debug("Keeper has released $counter contexts, active $activeConnections, pool: ${pool.size}")
-                    if (activeConnections == 0) synchronized(closeAllEvent) { closeAllEvent.notifyAll() }
+//                    if (activeConnections == 0) closeAllEvent.pulse()
 
                 }
             } catch (x: Throwable) {
@@ -204,10 +264,6 @@ class Database(
             } finally {
                 debug("keeper thread for $this is finished")
             }
-        }.also {
-            it.isDaemon = true
-            it.start()
-            debug("keeper thread for $this was set to daemon mode")
         }
     }
 

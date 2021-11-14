@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "0.2.1"
+version = "0.2.2"
 
 repositories {
     mavenCentral()
@@ -14,9 +14,12 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:42.3.1")
+    testImplementation("org.postgresql:postgresql:42.2.24")
 }
+
+val compileKotlin: KotlinCompile by tasks
 
 tasks.test {
     useJUnitPlatform()
@@ -24,6 +27,7 @@ tasks.test {
 
 tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.languageVersion = "1.5"
 }
 
 tasks.jar {
