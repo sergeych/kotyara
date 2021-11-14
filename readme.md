@@ -2,19 +2,23 @@
 
 __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
 
-> this library is in alfa stage. Interfaces could be changed. It is internally used in pbeta-production sites, using Postgres JDBC connections.
+> this library is in BETA2 stage. Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
 
-Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle.
+Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle. It was influenced by simplicity of scala's ANROM library. Pity kotlin has no language features to mimic it at a larger extent.
 
-The idea is to let the same agility that provides scala anorm library without precompiling SQL as sqldelight does, lieaving all database logic conveniently put together in the kotlin source files.
+The main principle is to let the same agility that SQL gives without any complications and difficult and/or boilerplate code, putting together database logic and the kotlin program logic. From our experience separate .sql files are provocating errors and require more attention than having all the code in the same place.
 
-__build-in support for almost all types__ including json/jsonb as strings amd kotlin enums as ordinals or names depending on column type
+Some of our features:
 
-__Built-in support for different read and write connections__ for heavy loaded data systems with write-master/read-slaves db setups.
+- __Same API for coroutines and threads__: the API is the same: while it works slightly fater with coroutines, it is practically the same without it. The smart connection and coroutines dispatcher management prevents threads depleting and tries to free threads and connections as the load falls.
 
-__Fast connection pool__ It has one simple and fast pool intended to detect some common pool usage errors (lake sharing pooled connections out of the usage context).
+- __build-in support for almost all types__ including json/jsonb as strings amd kotlin enums as ordinals or names depending on column type
 
-__Built-in migrations support__ is being made by combining flyway and ActiveRecord approach, providing __versioned migrations__ and __repeating migrations__, also source code migrations and platofrm-agnostic recovery support for failed migrations, what means rolling back transactinos where DDL supports it (e.g. with postgres), and copying the whole database where postgres is not yet used. This, though, requires `Schema` implementations for particular platforms, though we will provide generic one.
+- __Built-in support for different read and write connections__ for heavy loaded data systems with write-master/read-slaves db setups.
+
+- __Fast connection pool__ It has one simple and fast pool intended to detect some common pool usage errors (lake sharing pooled connections out of the usage context).
+
+- __Built-in migrations support__ is being made by combining flyway and ActiveRecord approach, providing __versioned migrations__ and __repeating migrations__, also source code migrations and platofrm-agnostic recovery support for failed migrations, what means rolling back transactinos where DDL supports it (e.g. with postgres), and copying the whole database where postgres is not yet used. This, though, requires `Schema` implementations for particular platforms, though we will provide generic one.
 
 ## Migrations
 
@@ -104,15 +108,52 @@ class Schema {
 
 allowing registering pre- and post-migration hooks. Just do it _before_ performing migrations.
 
+## Coroutines
+
+Our main goal was the postgres, and postgres is not threaded, it spawn a process per connection, and the connection naturally should be used by one thread at a time, so there is no big deal to loet coroutines share connections. Also, the number of connections determines number of threads to process them effectively using coroutines. Also, it;s a big problem in heavy loaded environments that limited connections could block all application threads stalling the whole system.
+
+In spite of this, kotyara uses coroutines internally controlling by a dispatcher which threadpool is limited and its capacity automatically adjusted as number of active connections changes. Therefore, code calling `Database`'s method 
+
+    suspend fun <T>asyncDb(block: suspend (DbContext)->T)` 
+
+which is the preferred point to start all DB processing from, _will not block calling thread bu suspend it until kotyara performs requested tasks_.
+
+There is also blocking variant of this interface:
+
+    suspend fun <T>asyncDb(block: (DbContext)->T)`
+
+But it just proxies to suspending one above.
+
+Kotyara executes the `block` above using own coroutine dispatcher which has limited number of thread constantly adjusted depending on the number of active database connections, which are also allocated dynamically.
+
+We recommend using suspend variant if your code uses coroutines.
+
+Kotyara does not use threads internally since v0.3.0.
+
+## Connection management
+
+When creating database it is possible to specify maximum number of retained connections. Retained means that kotyara will not free allocated connections below this count.
+
+Kotaya allocates new connections per-request basis and reuses them using fast coroutine-optimized pooling. It means, if there are no free connections in the pool, it will allocate new one and put it to the pool. Kotyara can have more connections than maximum number of retained connections on the peak load, and will reclaim them when the load drops.
+
+Still, the number of connection can't grow infintely. When it gets twice as mach as maximum retained number, it will not allocate new one but await or throw exception.
+
+When number of active connection changes, kotyara adjust number of threads in its coroutine dispatched pool to provide just enough parallelism processing all the connections in parallel. This means, after peak load kotyara will release both connection and OS threads.
+
+We will add a separate parameter later to control maximum number of allocated connections as well.
+
 ## Nearest plans
 
-A new major version will be a reqrite to async db connection (no more JDBC) and kotlinx serialization library (no more reflect). Should be much faster but source-incompatible. The interface will be kept almost the same, but with suspend functions and flows instead lists where appropriate.
+As 0.3.+ already supports coroutines very well, our plans are:
+
+- add coroutine wraps for postgres `LISTEN`
+
+- prepare to switch to kotlinx serialization in 1.0. It is not easy and will break compatibility, and we hope to see some important features in kotlinx first, as for now reflection though slow and big saves the day with converting data to and from database columns.
 
 ## Usage notes
 
 Please be informed that using of the migrator as a separate part from the database is considered rewriting, as database pausing with real database drivers cause hangups, so we are moving to explicetely and mandatorlily migrate any Database instance pror to any usage.
 
-Following a known naming tradition:
 
 
 
