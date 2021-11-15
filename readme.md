@@ -146,7 +146,11 @@ We will add a separate parameter later to control maximum number of allocated co
 
 As 0.3.+ already supports coroutines very well, our plans are:
 
-- add coroutine wraps for postgres `LISTEN`
+- create basic documentation
+
+- add coroutine wraps for postgres `LISTEN` according to their documentation (really strange)
+
+- add flows support to queries
 
 - prepare to switch to kotlinx serialization in 1.0. It is not easy and will break compatibility, and we hope to see some important features in kotlinx first, as for now reflection though slow and big saves the day with converting data to and from database columns.
 

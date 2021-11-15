@@ -8,7 +8,6 @@ import java.lang.IllegalStateException
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -53,6 +52,9 @@ class DbContext(
     inline fun <reified T : Any> query(sql: String, vararg params: Any): List<T> =
         withResultSet(true, sql, *params) { it.asMany(T::class) }
 
+    /**
+     * Perform a query, iterate the resultset passing each row to the transformer and return collected result.
+     */
     fun <T : Any> queryWith(sql: String, vararg params: Any, transformer: (ResultSet) -> T): List<T> =
         withResultSet(true, sql, *params) { rs ->
             val result = mutableListOf<T>()
@@ -60,6 +62,10 @@ class DbContext(
             result
         }
 
+    /**
+     * Perform sql select (not usable for update statements!) returning array of deserialized first column of the
+     * ResultSet. Additional columns are ignored.
+     */
     inline fun <reified T : Any> queryColumn(sql: String, vararg params: Any): List<T> =
         withResultSet(true, sql, *params) { rs ->
             val result = mutableListOf<T?>()
@@ -67,27 +73,45 @@ class DbContext(
             result.filterNotNull()
         }
 
+    /**
+     * Performs update query and return number of affected rows. Same as [update]
+     */
     fun sql(sql: String, vararg params: Any?): Int =
         withWriteStatement(sql, *params) { it.executeUpdate() }
 
-    fun execute(sql: String, vararg params: Any?) =
+    /**
+     * Performs update query and return number of affected rows. Same as [sql]
+     */
+    fun update(sql: String, vararg params: Any?): Int = sql(sql, *params)
+
+
+    /**
+     * Perfprms JDBC execute on statement, and returns its result: true if the first result is a ResultSet object;
+     * false if the first result is an update count or there is no result. Use it when you need to execute
+     * a statement that returns nothing, like `SELECT pg_some_fun()` which has not return value, as [query], [sql]
+     * and others may fail having no return value. See [JDBC docs](https://docs.oracle.com/javase/7/docs/api/java/sql/PreparedStatement.html#execute())
+     * for details on that difference.
+     */
+    fun execute(sql: String, vararg params: Any?): Boolean =
         withWriteStatement(sql, *params) { it.execute() }
 
     /**
-     * Calls `f` with a ResultSet prepositioned to the first row (ready to use) or returns null without
+     * Calls the block with a ResultSet by either executing a query (`isRead==true`) or update otherwise selecting
+     * proper connection for it. Uses statement caching. Could be used to execute DDL/DML statements in which case
+     * resultset contains number or affected strings
      * calling the block. This allow immediate use of the resultset. To loop through it it is recommended
      * to use `do {} while(rs.next())` construction or anything else with advancing the resultset at the end.
      *
      * @return whatever block returns or null if the result set is empty.
      */
-    fun <T> withResultSet(isRead: Boolean = true, sql: String, vararg params: Any?, f: (ResultSet) -> T): T {
+    fun <T> withResultSet(isRead: Boolean = true, sql: String, vararg params: Any?, block: (ResultSet) -> T): T {
         return withStatement2(isRead, sql, *params) {
             val rs = if (isRead) it.executeQuery() else {
                 it.execute()
                 it.resultSet
             }
             try {
-                f(rs)
+                block(rs)
             } catch (x: Exception) {
                 error("withResultSet crashed", x)
                 throw x
@@ -102,7 +126,7 @@ class DbContext(
      * @return whatever block returns
      * @throws NotFoundException if the resultset is empty
      */
-    fun <T> withResultSetOrThrow(isRead: Boolean, sql: String, vararg params: Any?, f: (ResultSet) -> T): T {
+    internal fun <T> withResultSetOrThrow(isRead: Boolean, sql: String, vararg params: Any?, f: (ResultSet) -> T): T {
         return withStatement2(isRead, sql, false, *params) {
             val rs = it.executeQuery()
             try {
@@ -116,13 +140,13 @@ class DbContext(
         }
     }
 
-    fun <T> withReadStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
+    internal fun <T> withReadStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
         withReadStatement2(sql, *args, f = block)
 
-    fun <T> withWriteStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
+    internal fun <T> withWriteStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
         withWriteStatement2(sql, *args, f = block)
 
-    fun <T> withStatement2(
+    internal fun <T> withStatement2(
         isRead: Boolean,
         sql: String,
         vararg args: Any?,
@@ -135,7 +159,7 @@ class DbContext(
     }
 
 
-    fun <T> withReadStatement2(
+    internal fun <T> withReadStatement2(
         sql: String,
         vararg args: Any?,
         f: (PreparedStatement) -> T
@@ -172,9 +196,7 @@ class DbContext(
         }
     }
 
-
     private var savepointLevel = AtomicInteger(0)
-
     /**
      * @return true if this context is already inside some savepoint or transaction
      */
@@ -189,6 +211,11 @@ class DbContext(
             throw IllegalStateException("DbContext is locked in savepoint, can't release")
     }
 
+    /**
+     * Creates savepoint and executes the block in it, rolling back on any exception throwing from it.
+     * Just like a transactions, but there could as many nested savepoints and possibility pf partial
+     * rollback (just catch the exception inside the block).
+     */
     fun <T> savepoint(f: () -> T): T {
         val was = writeConnection.autoCommit
         writeConnection.autoCommit = false
@@ -211,6 +238,31 @@ class DbContext(
         }
     }
 
+    /**
+     * Execute several SQL statements in one string. Note that there is _no SQL dialect parser here_ so to won't be
+     * able tp rpoperly parse the commands, so caller should adhere to the following convention:
+     *
+     * - if the SQL statement is rather simple enough to ends with ";\n" and having no such squeences inside its body,
+     *   just write it as is (regular command),
+     *
+     * - if the statement is multiline and may contain such string inside (for example, stored procedure, trigger, etc)
+     *   put in in the block delimited like:
+     *   ~~~sql
+     *   -- begin block --
+     *
+     *   CREATE OR REPLACE FUNCTION f_random_text(
+     *      param integer
+     *      -- code of your multiline statement
+     *      -- ...
+     *
+     *   -- end block --
+     *   ~~~
+     *   the `-- begin block --` and `--end block --` delimiters must not be idented. There could be as many
+     *   such blocks as need, and every block would be treated as a single statement.
+     *
+     *   Anyn non-empty text before, after or betweem such blocks will be treated as simple commands delimited by
+     *   "\n;" ending.
+     */
     fun executeAll(sqls: String) {
         for (block in parseBlocks(sqls)) {
             val commands = if( block.isBlock ) listOf(block.value) else {
@@ -225,6 +277,19 @@ class DbContext(
         }
     }
 
+    /**
+     * Start building a simple type-bound relation. Type bound relation is a statement builder that allows dynamic
+     * building of parameter-bound SQL statement that could be deserialized to Kotlin objects using their
+     * _primary constructors_. It could look like:
+     * ~~~kotlin
+     * val customer = select<Customer>().where("salary < ?", livingWage).limit(10).all
+     * ~~~
+     * The builder is very effective when the where clause _structure_ is not known at compile time, like depending
+     * from http request parameters, but have a common part in it, letting make your code DRY.
+     *
+     * The weak part of it is that it always deserializes to the instance of type provided ny creation. We plan to
+     * add more complex `kotlinx.serialization` based solution for more complex objects.
+     */
     inline fun <reified T : Any> select(): Relation<T> =
         Relation(this, T::class)
 

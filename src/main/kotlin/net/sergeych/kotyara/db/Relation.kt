@@ -98,7 +98,7 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
 
 
     fun <T> withResultSet(overrideLimit: Int? = null, block: (ResultSet) -> T): T =
-        context.withResultSet(true, buildSql(overrideLimit), *statementParams.toTypedArray(), f = block)
+        context.withResultSet(true, buildSql(overrideLimit), *statementParams.toTypedArray(), block = block)
 
     val all: List<T>
         get() =
