@@ -213,11 +213,16 @@ internal class DatabaseTest {
 
 //        DefaultLogger.connectStdout()
         val db = testDb()
+        db.withContext { dbc->
+            dbc.sql("drop table if exists simple_types")
+            dbc.sql("drop table if exists params")
+            dbc.sql("drop table if exists __performed_migrations")
+        }
         Logger.connectStdout()
         db.migrateWithResources(this.javaClass, PostgresSchema(), "/migration_test1")
 
         db.withContext { ct ->
-            println("see: ${ct.queryOne<Int>("select count(*) from simple_types")}")
+            println("see: ${ct.queryOne<Int>("select count(*) from params")}")
         }
 //        val i: Int = db.inContext { queryOne("select 42")!! }
 //        val s = PostgresSchema(db)

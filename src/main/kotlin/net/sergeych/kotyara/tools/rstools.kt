@@ -1,5 +1,10 @@
 package net.sergeych.kotyara
 
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import net.sergeych.tools.camelToSnakeCase
 import java.math.BigDecimal
 import java.sql.ResultSet
@@ -13,6 +18,7 @@ import kotlin.reflect.jvm.jvmErasure
 
 private val UTC = ZoneId.of("UTC")
 
+@Suppress("IMPLICIT_CAST_TO_ANY")
 fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
     val value = when (cls) {
         String::class -> getString(colName)
@@ -25,6 +31,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         Float::class -> getFloat(colName)
         ByteArray::class -> getBytes(colName)
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()
+        JsonObject::class -> Json.parseToJsonElement(getString(colName)).jsonObject
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
         }

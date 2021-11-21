@@ -92,14 +92,17 @@ abstract class Schema(private val useTransactions: Boolean) :
                     onFailure()
                     throw x
                 }
-                if (useTransactions)
-                    doMigrations(externalDb)
-                else
-                    externalDb.closeAllContexts(Duration.ofMinutes(3)) { db ->
-                        doMigrations(db)
-                    }
             }
         }
+
+        if (useTransactions)
+            doMigrations(externalDb)
+        else
+            runBlocking {
+                externalDb.closeAllContexts(Duration.ofMinutes(3)) { db ->
+                    doMigrations(db)
+                }
+            }
     }
 
 

@@ -1,11 +1,17 @@
+@file:Suppress("EXPERIMENTAL_API_USAGE")
+
 package net.sergeych.kotyara
 
-import java.lang.IllegalArgumentException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import java.math.BigDecimal
 import java.sql.PreparedStatement
 import java.sql.Timestamp
-import java.time.*
-import java.util.*
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZonedDateTime
 
 fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
     when (x) {
@@ -30,6 +36,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is Boolean -> setBoolean(n, x)
         is ByteArray -> setBytes(n, x)
         is Char -> setString(n, "$x")
+        is JsonObject -> setObject(n, Json.encodeToString(x), java.sql.Types.OTHER)
         is LocalDateTime -> setTimestamp(n, Timestamp.valueOf(x))
         is LocalDate -> setTimestamp(n, Timestamp.valueOf(LocalDateTime.of(x, LocalTime.MIN)))
         is ZonedDateTime -> setTimestamp(n, Timestamp.valueOf(x.toLocalDateTime()))

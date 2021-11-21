@@ -41,10 +41,22 @@ class DbContext(
         }
     }
 
+    /**
+     * Perform select type statement (no DML allowed) returning a row. If you need to execute DML this way,
+     * use [updateQueryRow] instead.
+     *
+     * @return row deserialized to the `T` type using its primary constructor or null if returned ResultSet is empty.
+     */
     inline fun <reified T : Any> queryRow(sql: String, vararg params: Any?): T? {
         return withResultSet(true, sql, *params) { it.asOne(T::class) }
     }
 
+    /**
+     * Perform update statement returning a row, for example postgres' gorgeous `create ... returning *` statements.
+     * Works just like [queryRow] but uses write connection and proper JDBC method to allow update.
+     *
+     * @return row deserialized to the `T` type using its primary constructor or null if returned resultset is empty.
+     */
     inline fun <reified T : Any> updateQueryRow(sql: String, vararg params: Any?): T? {
         return withResultSet(false, sql, *params) { it.asOne(T::class) }
     }
@@ -238,6 +250,28 @@ class DbContext(
         }
     }
 
+    suspend fun <T> asyncSavepoint(f: suspend () -> T): T {
+        val was = writeConnection.autoCommit
+        writeConnection.autoCommit = false
+        val sp = writeConnection.setSavepoint()
+        savepointLevel.incrementAndGet()
+        try {
+            debug("running inside the savepoint $sp")
+            val result = f()
+            debug("performing savepoint commit $sp")
+            writeConnection.commit()
+            return result
+        } catch (x: Exception) {
+            debug("exception in savepoint $sp will cause rollback: $x")
+            writeConnection.rollback(sp)
+            throw x
+        } finally {
+            savepointLevel.decrementAndGet()
+            debug("cleaning savepoint $sp ot level ${savepointLevel.get()}")
+            writeConnection.autoCommit = was
+        }
+    }
+
     /**
      * Execute several SQL statements in one string. Note that there is _no SQL dialect parser here_ so to won't be
      * able tp rpoperly parse the commands, so caller should adhere to the following convention:
@@ -332,6 +366,7 @@ class DbContext(
     private var transactionLevel = 0U
 
     fun <T> transaction(block: () -> T): T = savepoint(block)
+    suspend fun <T> asyncTransaction(block: suspend () -> T): T = asyncSavepoint(block)
 
 //    init {
 //        debug("DbContext $this is allocated")
