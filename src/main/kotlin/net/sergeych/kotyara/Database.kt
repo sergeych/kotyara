@@ -242,7 +242,7 @@ class Database(
                 while (!isClosed) {
                     keeperLock.await(if (maxConnections < activeConnections) 200 else 1000)
                     var counter = 0
-                    debug("keeper $this step: active=$activeConnections max=$maxConnections pool=${pool.size}")
+//                    debug("keeper $this step: active=$activeConnections max=$maxConnections pool=${pool.size}")
                     inMutex {
                         while (activeConnections > maxConnections && pool.isNotEmpty())
                             pool.removeLastOrNull()?.let { ct ->
