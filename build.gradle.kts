@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "0.3.2"
+version = "0.3.3"
 
 repositories {
     mavenCentral()
@@ -15,9 +15,9 @@ repositories {
 dependencies {
     implementation(kotlin("reflect"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.2.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.1")
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:42.2.24")
+    testImplementation("org.postgresql:postgresql:42.3.1")
 }
 
 val compileKotlin: KotlinCompile by tasks

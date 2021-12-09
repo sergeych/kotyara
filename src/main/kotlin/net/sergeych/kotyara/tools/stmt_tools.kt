@@ -22,10 +22,8 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
                 setString(n, x)
         }
         is Enum<*> -> {
-            if (metaData?.getColumnTypeName(n)?.startsWith("int") == true)
-                setInt(n, x.ordinal)
-            else
-                setString(n, x.name)
+            // we have no idea what is the exepcted type of nth argument (to which column it will be bound)
+            setString(n, x.name)
 
         }
         is Int -> setInt(n, x)

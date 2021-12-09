@@ -1,8 +1,6 @@
 package net.sergeych.kotyara
 
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import net.sergeych.tools.camelToSnakeCase
@@ -15,8 +13,6 @@ import java.time.ZonedDateTime
 import java.util.*
 import kotlin.reflect.KClass
 import kotlin.reflect.jvm.jvmErasure
-
-private val UTC = ZoneId.of("UTC")
 
 @Suppress("IMPLICIT_CAST_TO_ANY")
 fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
@@ -31,7 +27,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         Float::class -> getFloat(colName)
         ByteArray::class -> getBytes(colName)
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()
-        JsonObject::class -> Json.parseToJsonElement(getString(colName)).jsonObject
+        JsonObject::class -> getString(colName)?.let { Json.parseToJsonElement(it).jsonObject }
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
         }
@@ -56,7 +52,6 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
 
 fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T? =
     getValue(cls, metaData.getColumnName(colIndex))
-
 
 inline fun <reified T : Any> ResultSet.getValue(colName: String): T? = getValue<T>(T::class, colName)
 inline fun <reified T : Any> ResultSet.getValue(colIndex: Int): T? = getValue<T>(T::class, colIndex)

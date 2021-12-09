@@ -1,10 +1,8 @@
 package net.sergeych.kotyara
 
-import javafx.application.Application.launch
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import net.sergeych.kotyara.db.DbContext
-import net.sergeych.kotyara.tools.AsyncNotifier
 import net.sergeych.kotyara.tools.UnitNotifier
 import net.sergeych.kotyara.tools.withReentrantLock
 import net.sergeych.tools.Loggable
@@ -12,16 +10,13 @@ import net.sergeych.tools.TaggedLogger
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Duration
-import java.util.*
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeoutException
-import kotlin.coroutines.coroutineContext
 
 
 typealias ConnectionFactory = () -> Connection
 
+@Suppress("unused")
 class Database(
     private val writeConnectionFactory: ConnectionFactory,
     _readConnectionFactory: ConnectionFactory? = null,
