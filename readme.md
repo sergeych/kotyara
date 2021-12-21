@@ -2,9 +2,25 @@
 
 __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
 
-> this library is in BETA2 stage. Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
+> this library is in production stage (postgres). Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
 
 Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle. It was influenced by simplicity of scala's ANROM library. Pity kotlin has no language features to mimic it at a larger extent.
+
+## Installation
+
+Add is a dependency, for example, to the build.gradle.kts is should be like:
+
+~~~
+
+dependencies {
+    //...
+    // do not forget to supply jdbc:
+    implementation("org.postgresql:postgresql:42.3.1")
+    implementation("net.sergeych:kotyara:1.0.2")
+}
+~~~
+
+## In depth
 
 The main principle is to let the same agility that SQL gives without any complications and difficult and/or boilerplate code, putting together database logic and the kotlin program logic. From our experience separate .sql files are provocating errors and require more attention than having all the code in the same place.
 
