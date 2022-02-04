@@ -10,7 +10,6 @@ import java.nio.file.Paths
 import kotlin.io.path.isDirectory
 import kotlin.io.path.pathString
 import kotlin.io.path.readText
-import kotlin.streams.toList
 
 /**
  * Handler to retrieve stored resource in a classpath, also in JAR. Use [list] to get a list if handles.
@@ -34,7 +33,12 @@ class ResourceHandle(val name: String, val text: String) {
 
             fun walk(myPath: Path): List<ResourceHandle> =
                 Files.walk(myPath, 1).use {
-                    it.toList().mapNotNull { r: Path ->
+                    // important. Stream.toList often produces very strange exceptions (like it is missing on the
+                    // platform where it must exists) so ugly but...
+//                    it.toList().mapNotNull { r: Path ->
+                    val all = mutableListOf<Path>()
+                    for( x in it) all.add(x)
+                    all.mapNotNull { r: Path ->
                         val index = r.pathString.indexOf(root)
                         if (r.isDirectory() || index < 0)
                             null
