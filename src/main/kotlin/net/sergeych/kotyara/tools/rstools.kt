@@ -3,6 +3,7 @@ package net.sergeych.kotyara
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.tools.camelToSnakeCase
 import java.math.BigDecimal
 import java.sql.ResultSet
@@ -55,21 +56,24 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T? =
 inline fun <reified T : Any> ResultSet.getValue(colName: String): T? = getValue<T>(T::class, colName)
 inline fun <reified T : Any> ResultSet.getValue(colIndex: Int): T? = getValue<T>(T::class, colIndex)
 
-fun <T : Any> ResultSet.asOne(klass: KClass<T>): T? {
+fun <T : Any> ResultSet.asOne(klass: KClass<T>, converter: DbTypeConverter?): T? {
     if (!next()) return null
     val constructor = klass.constructors.first()
     val args = constructor.parameters.map { param ->
-        getValue(
-            param.type.jvmErasure,
-            param.name!!.camelToSnakeCase()
-        )
+        val columnName = param.name!!.camelToSnakeCase()
+        val paramType = param.type.jvmErasure
+        converter?.fromDatabaseType(paramType, this, findColumn(columnName))
+            ?: getValue(
+                paramType,
+                columnName
+            )
     }
     return constructor.call(*args.toTypedArray())
 }
 
-fun <T : Any> ResultSet.asMany(klass: KClass<T>): List<T> {
+fun <T : Any> ResultSet.asMany(klass: KClass<T>,converter: DbTypeConverter?): List<T> {
     val result = arrayListOf<T>()
     @Suppress("ControlFlowWithEmptyBody")
-    while (null != asOne(klass)?.also { result.add(it) });
+    while (null != asOne(klass, converter)?.also { result.add(it) });
     return result
 }

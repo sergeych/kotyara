@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package net.sergeych.kotyara.db
 
 import net.sergeych.kotyara.*
@@ -10,6 +12,7 @@ import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.reflect.KClass
 
 class DbContext(
     private val _readConnection: Connection,
@@ -49,7 +52,7 @@ class DbContext(
      * @return row deserialized to the `T` type using its primary constructor or null if returned ResultSet is empty.
      */
     inline fun <reified T : Any> queryRow(sql: String, vararg params: Any?): T? {
-        return withResultSet(true, sql, *params) { it.asOne(T::class) }
+        return withResultSet(true, sql, *params) { it.asOne(T::class,converter) }
     }
 
     /**
@@ -59,11 +62,11 @@ class DbContext(
      * @return row deserialized to the `T` type using its primary constructor or null if returned resultset is empty.
      */
     inline fun <reified T : Any> updateQueryRow(sql: String, vararg params: Any?): T? {
-        return withResultSet(false, sql, *params) { it.asOne(T::class) }
+        return withResultSet(false, sql, *params) { it.asOne(T::class, converter) }
     }
 
     inline fun <reified T : Any> query(sql: String, vararg params: Any): List<T> =
-        withResultSet(true, sql, *params) { it.asMany(T::class) }
+        withResultSet(true, sql, *params) { it.asMany(T::class, converter) }
 
     /**
      * Perform a query, iterate the resultset passing each row to the transformer and return collected result.
@@ -195,6 +198,9 @@ class DbContext(
 
     inline fun <reified T: Any>convertFromDb(rs: ResultSet,column: Int): T? =
         converter?.fromDatabaseType(T::class,rs, column) ?: rs.getValue(column)
+
+    fun <T: Any>convertFromDb(klass: KClass<T>,rs: ResultSet,column: Int): T? =
+        converter?.fromDatabaseType(klass,rs, column) ?: rs.getValue(klass,column)
 
     fun <T> withWriteStatement2(
         sql: String,

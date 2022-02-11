@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package net.sergeych.kotyara.db
 
 import net.sergeych.kotyara.DbException
@@ -102,10 +104,10 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
 
     val all: List<T>
         get() =
-            withResultSet { it.asMany(klass) }
+            withResultSet { it.asMany(klass,context.converter) }
 
     val first: T?
         get() =
-            withResultSet(1) { it.asOne(klass) }
+            withResultSet(1) { it.asOne(klass,context.converter) }
 
 }
