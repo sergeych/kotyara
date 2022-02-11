@@ -13,7 +13,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class DbContext(
     private val _readConnection: Connection,
-    private val writeConnection: Connection = _readConnection
+    private val writeConnection: Connection = _readConnection,
+    val converter: DbTypeConverter?
 ) : Loggable by TaggedLogger("DBC") {
 
     private val readConnection: Connection
@@ -26,7 +27,7 @@ class DbContext(
     inline fun <reified T : Any> queryOne(sql: String, vararg params: Any?): T? {
         return withResultSet(true, sql, *params) { rs ->
             if (rs.next())
-                rs.getValue(1)
+                convertFromDb(rs, 1) as T?
             else
                 null
         }
@@ -35,7 +36,7 @@ class DbContext(
     inline fun <reified T : Any> updateQueryOne(sql: String, vararg params: Any?): T? {
         return withResultSet(false, sql, *params) { rs ->
             if (rs.next())
-                rs.getValue(1)
+                convertFromDb(rs,1)
             else
                 null
         }
@@ -81,7 +82,7 @@ class DbContext(
     inline fun <reified T : Any> queryColumn(sql: String, vararg params: Any): List<T> =
         withResultSet(true, sql, *params) { rs ->
             val result = mutableListOf<T?>()
-            while (rs.next()) result.add(rs.getValue(T::class, 1))
+            while (rs.next()) result.add(convertFromDb(rs, 1))
             result.filterNotNull()
         }
 
@@ -182,10 +183,17 @@ class DbContext(
             PreparedStatement.RETURN_GENERATED_KEYS
         )
         statement.clearParameters()
-        args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
+        args.forEachIndexed { i, x -> statement.setValue(i + 1, convertToDb(x), sql) }
         // important: we do not close statement, we do cache it, so we should close result sets instead
         return f(statement).also { readStatementCache[sql] = statement }
     }
+
+    private fun convertToDb(x: Any?): Any? {
+        return x?.let { converter?.toDatabaseType(it) ?: it }
+    }
+
+    inline fun <reified T: Any>convertFromDb(rs: ResultSet,column: Int): T? =
+        converter?.fromDatabaseType(T::class,rs, column) ?: rs.getValue(column)
 
     fun <T> withWriteStatement2(
         sql: String,
@@ -200,7 +208,7 @@ class DbContext(
         } else
             writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
         statement.clearParameters()
-        args.forEachIndexed { i, x -> statement.setValue(i + 1, x, sql) }
+        args.forEachIndexed { i, x -> statement.setValue(i + 1, convertToDb(x), sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
         return f(statement).also {
             if (isInTransaction) statement.close()

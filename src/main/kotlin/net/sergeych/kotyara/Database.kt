@@ -3,6 +3,7 @@ package net.sergeych.kotyara
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import net.sergeych.kotyara.db.DbContext
+import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.tools.UnitNotifier
 import net.sergeych.kotyara.tools.withReentrantLock
 import net.sergeych.tools.Loggable
@@ -21,21 +22,24 @@ class Database(
     private val writeConnectionFactory: ConnectionFactory,
     _readConnectionFactory: ConnectionFactory? = null,
 //    var maxIdleConnections: Int = 5,
-    private var _maxConnections: Int = 30
+    private var _maxConnections: Int = 30,
+    private val converter: DbTypeConverter?=null
 ) : Loggable by TaggedLogger("DBSE") {
 
-    constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30) :
+    constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30,converter: DbTypeConverter?=null) :
             this(
                 { DriverManager.getConnection(writeUrl) },
                 { DriverManager.getConnection(readUrl) },
-                _maxConnections = maxConnections
+                _maxConnections = maxConnections,
+                converter
             )
 
-    constructor(writeUrl: String, maxConnections: Int = 30) :
+    constructor(writeUrl: String, maxConnections: Int = 30,converter: DbTypeConverter?=null) :
             this(
                 { DriverManager.getConnection(writeUrl) },
                 null,
-                _maxConnections = maxConnections
+                _maxConnections = maxConnections,
+                converter
             )
 
     private val readConnectionFactory: ConnectionFactory = _readConnectionFactory ?: writeConnectionFactory
@@ -81,8 +85,8 @@ class Database(
             if (activeConnections < maxConnections * 2) {
                 val dbc = if (readConnectionFactory == writeConnectionFactory) {
                     val connection = readConnectionFactory()
-                    DbContext(connection, connection)
-                } else DbContext(readConnectionFactory(), writeConnectionFactory())
+                    DbContext(connection, connection, converter)
+                } else DbContext(readConnectionFactory(), writeConnectionFactory(), converter)
                 activeConnections++
                 (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize++
                 info("Connection added: $activeConnections / $maxConnections / $leakedConnections")

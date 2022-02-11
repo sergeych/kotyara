@@ -1,17 +1,24 @@
 package net.sergeych.kotyara
 
 import kotlinx.coroutines.*
+import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.tools.Logger
 import net.sergeych.tools.iso8601
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import java.math.BigInteger
+import java.sql.ResultSet
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.timer
 import kotlin.coroutines.coroutineContext
+import kotlin.reflect.KClass
 import kotlin.test.assertIs
 import kotlin.time.measureTime
 
@@ -32,6 +39,37 @@ internal class DatabaseTest {
             transaction {
                 val i: Int? = queryOne("select ?", 11)
                 assertEquals(11, i)
+            }
+        }
+    }
+
+    @Test
+    fun convertInstant() {
+        val db = testDb()
+        db.inContext {
+            transaction {
+                val i = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+                val i1: Instant? = queryOne("select ?", i)
+                assertEquals(i, i1)
+            }
+        }
+
+    }
+
+    @Test
+    fun converter() {
+//        val db = testDb()
+        val db = testDb(converter = object : DbTypeConverter {
+            override fun toDatabaseType(t: Any): Any =
+                (t as? BigInteger)?.let { it.toString() } ?: t
+
+            override fun <T : Any> fromDatabaseType(klass: KClass<T>, t: ResultSet, column: Int): T? =
+                if( klass == BigInteger::class ) BigInteger(t.getString(column)) as T? else null
+        })
+        db.inContext {
+            transaction {
+                val i: BigInteger? = queryOne("select ?", BigInteger("11"))
+                assertEquals(BigInteger("11"), i)
             }
         }
     }
@@ -150,8 +188,8 @@ internal class DatabaseTest {
         }
     }
 
-    private fun testDb(maxConnections: Int = 10) =
-        Database("jdbc:postgresql://localhost/kotyara-test", maxConnections)
+    private fun testDb(maxConnections: Int = 10, converter: DbTypeConverter? = null) =
+        Database("jdbc:postgresql://localhost/kotyara-test", maxConnections, converter)
 
     @Test
     fun manyConnections() {

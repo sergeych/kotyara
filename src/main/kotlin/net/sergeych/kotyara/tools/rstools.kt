@@ -31,18 +31,17 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
         }
+        Instant::class -> getTimestamp(colName)?.let { t -> Instant.ofEpochMilli(t.time) }
         else -> {
-            if( cls.java.isEnum ) {
+            if (cls.java.isEnum) {
                 val x = getObject(colName)
-                if( x is Number) {
+                if (x is Number) {
                     val ordinal = x.toInt()
                     cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.ordinal == ordinal }
-                }
-                else {
+                } else {
                     cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.name == x.toString() }
                 }
-            }
-            else
+            } else
                 throw DbException("unknown param type $cls for column '$colName'")
         }
     }
@@ -57,7 +56,7 @@ inline fun <reified T : Any> ResultSet.getValue(colName: String): T? = getValue<
 inline fun <reified T : Any> ResultSet.getValue(colIndex: Int): T? = getValue<T>(T::class, colIndex)
 
 fun <T : Any> ResultSet.asOne(klass: KClass<T>): T? {
-    if( !next() ) return null
+    if (!next()) return null
     val constructor = klass.constructors.first()
     val args = constructor.parameters.map { param ->
         getValue(

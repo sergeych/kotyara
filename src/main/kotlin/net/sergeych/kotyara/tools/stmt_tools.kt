@@ -8,10 +8,7 @@ import kotlinx.serialization.json.JsonObject
 import java.math.BigDecimal
 import java.sql.PreparedStatement
 import java.sql.Timestamp
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.ZonedDateTime
+import java.time.*
 
 fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
     when (x) {
@@ -22,9 +19,9 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
                 setString(n, x)
         }
         is Enum<*> -> {
-            // we have no idea what is the exepcted type of nth argument (to which column it will be bound)
+            // we have no idea what is the expected type of nth argument (to which column it will be bound)
+            // so the problem: for ordinal-encoded enums we can't decode it proper;u
             setString(n, x.name)
-
         }
         is Int -> setInt(n, x)
         is Long -> setLong(n, x)
@@ -38,6 +35,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is LocalDateTime -> setTimestamp(n, Timestamp.valueOf(x))
         is LocalDate -> setTimestamp(n, Timestamp.valueOf(LocalDateTime.of(x, LocalTime.MIN)))
         is ZonedDateTime -> setTimestamp(n, Timestamp.valueOf(x.toLocalDateTime()))
+        is Instant -> setTimestamp(n, Timestamp.valueOf(ZonedDateTime.ofInstant(x, ZoneId.systemDefault()).toLocalDateTime()))
         null -> setObject(n, null)
         else -> {
             throw IllegalArgumentException("unknown param[$n]:$x type: ${x::class.qualifiedName} from $sql")

@@ -167,15 +167,26 @@ When number of active connection changes, kotyara adjust number of threads in it
 
 We will add a separate parameter later to control maximum number of allocated connections as well.
 
+## Latest changes
+
+### 1.0.3 Snapshot
+
+- added user conversions [DbTypeConverter] interface could be  can be added as an optional parameter of `Database()` constructor
+- support for java.time.Instant
+
 ## Nearest plans
 
 As 0.3.+ already supports coroutines very well, our plans are:
+
+- move references (hasOne) here from our other projects.
 
 - create basic documentation
 
 - add coroutine wraps for postgres `LISTEN` according to their documentation (really strange)
 
 - add flows support to queries
+
+We dropped plans to use serialization for fields as it provides more problem than profut and usage ease. 
 
 - prepare to switch to kotlinx serialization in 1.0. It is not easy and will break compatibility, and we hope to see some important features in kotlinx first, as for now reflection though slow and big saves the day with converting data to and from database columns.
 
