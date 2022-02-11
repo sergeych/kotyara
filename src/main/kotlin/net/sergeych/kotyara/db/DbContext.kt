@@ -183,13 +183,14 @@ class DbContext(
             PreparedStatement.RETURN_GENERATED_KEYS
         )
         statement.clearParameters()
-        args.forEachIndexed { i, x -> statement.setValue(i + 1, convertToDb(x), sql) }
+        args.forEachIndexed { i, x -> setValue(x, statement,i + 1, sql) }
         // important: we do not close statement, we do cache it, so we should close result sets instead
         return f(statement).also { readStatementCache[sql] = statement }
     }
 
-    private fun convertToDb(x: Any?): Any? {
-        return x?.let { converter?.toDatabaseType(it) ?: it }
+    private fun setValue(value: Any?,statement: PreparedStatement,column: Int,sql: String) {
+        if( value == null || converter == null || !converter.toDatabaseType(value, statement,column) )
+            statement.setValue(column, value, sql)
     }
 
     inline fun <reified T: Any>convertFromDb(rs: ResultSet,column: Int): T? =
@@ -208,7 +209,7 @@ class DbContext(
         } else
             writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
         statement.clearParameters()
-        args.forEachIndexed { i, x -> statement.setValue(i + 1, convertToDb(x), sql) }
+        args.forEachIndexed { i, x -> setValue(x, statement,i + 1, sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
         return f(statement).also {
             if (isInTransaction) statement.close()

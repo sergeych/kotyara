@@ -5,22 +5,19 @@ import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.tools.Logger
 import net.sergeych.tools.iso8601
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import java.math.BigInteger
+import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.concurrent.timer
-import kotlin.coroutines.coroutineContext
 import kotlin.reflect.KClass
 import kotlin.test.assertIs
-import kotlin.time.measureTime
 
 
 internal class DatabaseTest {
@@ -56,15 +53,21 @@ internal class DatabaseTest {
 
     }
 
+    @Suppress("UNCHECKED_CAST")
     @Test
     fun converter() {
 //        val db = testDb()
         val db = testDb(converter = object : DbTypeConverter {
-            override fun toDatabaseType(t: Any): Any =
-                (t as? BigInteger)?.let { it.toString() } ?: t
+            override fun toDatabaseType(value: Any, statement: PreparedStatement, column: Int): Boolean {
+                return if( value is BigInteger ) {
+                    statement.setString(column, value.toString())
+                    true
+                }
+                else false
+            }
 
-            override fun <T : Any> fromDatabaseType(klass: KClass<T>, t: ResultSet, column: Int): T? =
-                if( klass == BigInteger::class ) BigInteger(t.getString(column)) as T? else null
+            override fun <T : Any> fromDatabaseType(klass: KClass<T>, rs: ResultSet, column: Int): T? =
+                if( klass == BigInteger::class ) BigInteger(rs.getString(column)) as T? else null
         })
         db.inContext {
             transaction {
