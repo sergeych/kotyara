@@ -186,7 +186,9 @@ class DbContext(
             PreparedStatement.RETURN_GENERATED_KEYS
         )
         statement.clearParameters()
-        args.forEachIndexed { i, x -> setValue(x, statement,i + 1, sql) }
+        args.forEachIndexed { i, x ->
+            setValue(x, statement,i + 1, sql)
+        }
         // important: we do not close statement, we do cache it, so we should close result sets instead
         return f(statement).also { readStatementCache[sql] = statement }
     }

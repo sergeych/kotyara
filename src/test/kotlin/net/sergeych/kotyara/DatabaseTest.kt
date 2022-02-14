@@ -77,6 +77,16 @@ internal class DatabaseTest {
         }
     }
 
+    @Test
+    fun selectOne() {
+        val db = testDb()
+        val x: Int = db.withContext { dbc->
+            dbc.sql("create table if not exists foobars(id bigserial not null primary key, text varchar)")
+            dbc.queryOne("select count(*) from foobars where text=? or text = ?", "12", "11")!!
+        }
+        println(x)
+    }
+
     data class Simple(val foo: String, val bar: Int, val createdAt: ZonedDateTime)
     data class SimpleSnake(val foo: String, val bar: Int, val created_at: ZonedDateTime)
 

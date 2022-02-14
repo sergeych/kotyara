@@ -13,7 +13,7 @@ import java.time.*
 fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
     when (x) {
         is String -> {
-            if (metaData?.getColumnTypeName(n)?.startsWith("json") == true)
+            if (parameterMetaData?.getParameterTypeName(n)?.startsWith("json") == true)
                 setObject(n, x, java.sql.Types.OTHER)
             else
                 setString(n, x)
@@ -21,7 +21,10 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is Enum<*> -> {
             // we have no idea what is the expected type of nth argument (to which column it will be bound)
             // so the problem: for ordinal-encoded enums we can't decode it proper;u
-            setString(n, x.name)
+            if (parameterMetaData?.getParameterType(n) == java.sql.Types.INTEGER)
+                setObject(n, x, java.sql.Types.OTHER)
+            else
+                setString(n, x.name)
         }
         is Int -> setInt(n, x)
         is Long -> setLong(n, x)
