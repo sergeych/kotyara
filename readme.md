@@ -25,7 +25,7 @@ dependencies {
     //...
     // do not forget to supply jdbc:
     implementation("org.postgresql:postgresql:42.3.1")
-    implementation("net.sergeych:kotyara:1.0.2")
+    implementation("net.sergeych:kotyara:1.0.3")
 }
 ~~~
 
@@ -49,11 +49,11 @@ Some of our features:
 
 The simplest way to include migrations is to add resource directory named `db_migrations` with sql scriptst with the usual naming convention:
 
-| name | meaning | order |
-|------|---------|-------|
-|v1__<name>.sql| first migration to perform | 1 |
-|v2__<name>.sql| second migration...| 2 |
-|r_<repeatable>.sql| repeatable migration | afer all numbered |
+| name               | meaning                    | order             |
+|--------------------|----------------------------|-------------------|
+| v1__<name>.sql     | first migration to perform | 1                 |
+| v2__<name>.sql     | second migration...        | 2                 |
+| r_<repeatable>.sql | repeatable migration       | afer all numbered |
 
 E.g. migrations with file name like `v<int>__<any_file_name>.sql` are performed first and in or its number. Mogrations starting with `r__` are named _repeatable_. It neabs these are performed every time the scrip content is changed. Repeatable migrations are conenient to define test data or stored functions, triggers, etc.
 
@@ -169,10 +169,18 @@ We will add a separate parameter later to control maximum number of allocated co
 
 ## Latest changes
 
-### 1.0.3 Snapshot
+### 1.0.3
+
+Experimenta features:
+
+- JSON types tries to support both String or JsonObject based on available metadata
+- Enums could be storead as varchar or in in the database, kotyara tries to detect the proper format using driver-provided metadata.
+
+Enhancements
 
 - added user conversions [DbTypeConverter] interface could be  can be added as an optional parameter of `Database()` constructor
 - support for java.time.Instant
+- few bugs fixed
 
 ## Nearest plans
 
