@@ -19,6 +19,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KClass
 import kotlin.test.assertIs
 
+enum class Enum1 {
+    FOO, BAR;
+}
+
 
 internal class DatabaseTest {
 
@@ -81,6 +85,7 @@ internal class DatabaseTest {
     fun selectOne() {
         val db = testDb()
         val x: Int = db.withContext { dbc->
+            dbc.sql("drop table if exists foobars")
             dbc.sql("create table if not exists foobars(id bigserial not null primary key, text varchar)")
             dbc.queryOne("select count(*) from foobars where text=? or text = ?", "12", "11")!!
         }
@@ -94,6 +99,24 @@ internal class DatabaseTest {
         val id: Long, val name: String, val gender: String,
         val birthDate: LocalDate?, val createdAt: ZonedDateTime
     )
+
+    @Test
+    fun enums() {
+        data class Foobar1(val foo: Enum1, val bar: Enum1)
+        val db = testDb()
+        db.withContext {
+            val x = it.queryOne<Enum1>("select ?", Enum1.FOO)
+            assertEquals(Enum1.FOO, x)
+
+            it.sql("drop table if exists foobars")
+            it.sql("create table foobars(foo int,bar varchar)")
+            val r = it.updateQueryRow<Foobar1>("insert into foobars(foo,bar) values(?,?) returning *",
+                Enum1.FOO, Enum1.BAR)
+            println(":: $r")
+            assertEquals(Enum1.FOO, r!!.foo)
+            assertEquals(Enum1.BAR, r.bar)
+        }
+    }
 
 
     @Test

@@ -19,10 +19,9 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
                 setString(n, x)
         }
         is Enum<*> -> {
-            // we have no idea what is the expected type of nth argument (to which column it will be bound)
-            // so the problem: for ordinal-encoded enums we can't decode it proper;u
+            // support both string (name) and in (ordinal) columns for enums:
             if (parameterMetaData?.getParameterType(n) == java.sql.Types.INTEGER)
-                setObject(n, x, java.sql.Types.OTHER)
+                setInt(n, x.ordinal)
             else
                 setString(n, x.name)
         }
