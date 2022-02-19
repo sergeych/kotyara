@@ -17,10 +17,17 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KClass
+import kotlin.test.assertContentEquals
 import kotlin.test.assertIs
 
 enum class Enum1 {
     FOO, BAR;
+}
+
+internal data class Outer(val x: Int) {
+    enum class Enum1 {
+        FOO, BAR;
+    }
 }
 
 
@@ -63,15 +70,14 @@ internal class DatabaseTest {
 //        val db = testDb()
         val db = testDb(converter = object : DbTypeConverter {
             override fun toDatabaseType(value: Any, statement: PreparedStatement, column: Int): Boolean {
-                return if( value is BigInteger ) {
+                return if (value is BigInteger) {
                     statement.setString(column, value.toString())
                     true
-                }
-                else false
+                } else false
             }
 
             override fun <T : Any> fromDatabaseType(klass: KClass<T>, rs: ResultSet, column: Int): T? =
-                if( klass == BigInteger::class ) BigInteger(rs.getString(column)) as T? else null
+                if (klass == BigInteger::class) BigInteger(rs.getString(column)) as T? else null
         })
         db.inContext {
             transaction {
@@ -84,7 +90,7 @@ internal class DatabaseTest {
     @Test
     fun selectOne() {
         val db = testDb()
-        val x: Int = db.withContext { dbc->
+        val x: Int = db.withContext { dbc ->
             dbc.sql("drop table if exists foobars")
             dbc.sql("create table if not exists foobars(id bigserial not null primary key, text varchar)")
             dbc.queryOne("select count(*) from foobars where text=? or text = ?", "12", "11")!!
@@ -97,12 +103,13 @@ internal class DatabaseTest {
 
     data class Person(
         val id: Long, val name: String, val gender: String,
-        val birthDate: LocalDate?, val createdAt: ZonedDateTime
+        val birthDate: LocalDate?, val createdAt: ZonedDateTime,
     )
 
     @Test
     fun enums() {
         data class Foobar1(val foo: Enum1, val bar: Enum1)
+
         val db = testDb()
         db.withContext {
             val x = it.queryOne<Enum1>("select ?", Enum1.FOO)
@@ -118,6 +125,21 @@ internal class DatabaseTest {
         }
     }
 
+    @Test
+    fun enumsInside() {
+        data class Foobar1(val foo: Outer.Enum1, val bar: Outer.Enum1)
+
+        val db = testDb()
+        db.withContext {
+            it.sql("drop table if exists foobars")
+            it.sql("create table foobars(foo int,bar varchar)")
+            val r = it.updateQueryRow<Foobar1>("insert into foobars(foo,bar) values(?,?) returning *",
+                Outer.Enum1.FOO, Outer.Enum1.BAR)
+            println(":: $r")
+            assertEquals(Outer.Enum1.FOO, r!!.foo)
+            assertEquals(Outer.Enum1.BAR, r.bar)
+        }
+    }
 
     @Test
     fun asMany() {
@@ -287,7 +309,7 @@ internal class DatabaseTest {
 
 //        DefaultLogger.connectStdout()
         val db = testDb()
-        db.withContext { dbc->
+        db.withContext { dbc ->
             dbc.sql("drop table if exists simple_types")
             dbc.sql("drop table if exists params")
             dbc.sql("drop table if exists __performed_migrations")
@@ -302,6 +324,26 @@ internal class DatabaseTest {
 //        val s = PostgresSchema(db)
 //        s.migrateFromResources("migration_test1")
 //        Thread.sleep(300)
+    }
+
+    @Test
+    fun testLists() {
+        val db = testDb()
+        db.withContext { dbc->
+            assertContentEquals(arrayOf(1231,22),dbc.queryOne<Array<Any>>("select '{1231,22}'::int[]"))
+            assertContentEquals(listOf(1231,221),dbc.queryOne<List<Any>>("select '{1231,221}'::int[]"))
+
+            dbc.sql("drop table if exists foobars")
+            dbc.sql("create table foobars(foo int,bar varchar)")
+            for( i in 1..5) dbc.update("insert into foobars(foo,bar) values(?,?)", i, "val-$i")
+
+            data class Foobar(val foo: Int, val bar: String)
+            val fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf(2,5))
+            assertEquals(listOf(2,5), fbs.map { it.foo })
+//            fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf("123"))
+//            fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf<Double>())
+//            assertEquals(0, fbs.size)
+        }
     }
 
 }

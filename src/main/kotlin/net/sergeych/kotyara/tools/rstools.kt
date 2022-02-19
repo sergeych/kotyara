@@ -32,6 +32,8 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->
             ZonedDateTime.ofInstant(Instant.ofEpochMilli(t.time), ZoneId.systemDefault())
         }
+        List::class -> (getArray(colName).array as Array<*>).toList()
+        Array::class -> getArray(colName).array as Array<*>
         Instant::class -> getTimestamp(colName)?.let { t -> Instant.ofEpochMilli(t.time) }
         else -> {
             if (cls.java.isEnum) {
