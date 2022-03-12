@@ -2,14 +2,14 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.5.31"
+    kotlin("jvm") version "1.6.10"
     id("java-library")
     `maven-publish`
 
 }
 
 group = "net.sergeych"
-version = "1.0.4-SNAPSHOT"
+version = "1.0.5-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -21,7 +21,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:42.3.2")
+    testImplementation("org.postgresql:postgresql:42.3.3")
 }
 
 java {

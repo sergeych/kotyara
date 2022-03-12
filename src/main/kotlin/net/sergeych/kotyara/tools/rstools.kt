@@ -52,8 +52,9 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
     return if (wasNull()) null else (value as T)
 }
 
-fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T? =
-    getValue(cls, metaData.getColumnName(colIndex))
+fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T?  {
+    return getValue(cls, metaData.getColumnName(colIndex))
+}
 
 inline fun <reified T : Any> ResultSet.getValue(colName: String): T? = getValue<T>(T::class, colName)
 inline fun <reified T : Any> ResultSet.getValue(colIndex: Int): T? = getValue<T>(T::class, colIndex)

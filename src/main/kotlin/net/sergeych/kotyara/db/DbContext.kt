@@ -250,19 +250,21 @@ class DbContext(
         writeConnection.autoCommit = false
         val sp = writeConnection.setSavepoint()
         savepointLevel.incrementAndGet()
+        debug("created savepoint object: ${sp.savepointId}, level is ${savepointLevel.get()}")
         try {
             debug("running inside the savepoint $sp")
             val result = f()
-            debug("performing savepoint commit $sp")
-            writeConnection.commit()
+            debug("performing savepoint commit ${sp.savepointId}")
+            // commit is done by restoring autocommit
+//            writeConnection.commit()
             return result
         } catch (x: Exception) {
-            debug("exception in savepoint $sp will cause rollback: $x")
+            debug("exception in savepoint ${sp.savepointId} will cause rollback: $x")
             writeConnection.rollback(sp)
             throw x
         } finally {
-            savepointLevel.decrementAndGet()
-            debug("cleaning savepoint $sp ot level ${savepointLevel.get()}")
+            val level = savepointLevel.decrementAndGet()
+            debug("cleaning savepoint ${sp.savepointId} ot level ${level} / $was")
             writeConnection.autoCommit = was
         }
     }
@@ -276,15 +278,15 @@ class DbContext(
             debug("running inside the savepoint $sp")
             val result = f()
             debug("performing savepoint commit $sp")
-            writeConnection.commit()
+//            writeConnection.commit()
             return result
         } catch (x: Exception) {
             debug("exception in savepoint $sp will cause rollback: $x")
             writeConnection.rollback(sp)
             throw x
         } finally {
-            savepointLevel.decrementAndGet()
-            debug("cleaning savepoint $sp ot level ${savepointLevel.get()}")
+            val level = savepointLevel.decrementAndGet()
+            debug("cleaning savepoint $sp ot level ${level} / $was")
             writeConnection.autoCommit = was
         }
     }
