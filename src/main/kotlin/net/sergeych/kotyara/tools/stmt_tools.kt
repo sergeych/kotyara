@@ -23,10 +23,10 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         }
         is Enum<*> -> {
             // support both string (name) and in (ordinal) columns for enums:
-            if (parameterMetaData?.getParameterType(n) == INTEGER)
-                setInt(n, x.ordinal)
-            else
-                setString(n, x.name)
+            when (parameterMetaData?.getParameterType(n)) {
+                INTEGER, SMALLINT, TINYINT -> setInt(n, x.ordinal)
+                else -> setString(n, x.name)
+            }
         }
         is Int -> setInt(n, x)
         is Long -> setLong(n, x)
