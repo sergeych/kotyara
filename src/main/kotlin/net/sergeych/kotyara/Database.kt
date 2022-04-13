@@ -23,10 +23,10 @@ class Database(
     _readConnectionFactory: ConnectionFactory? = null,
 //    var maxIdleConnections: Int = 5,
     private var _maxConnections: Int = 30,
-    private val converter: DbTypeConverter?=null
+    private val converter: DbTypeConverter? = null,
 ) : Loggable by TaggedLogger("DBSE") {
 
-    constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30,converter: DbTypeConverter?=null) :
+    constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30, converter: DbTypeConverter? = null) :
             this(
                 { DriverManager.getConnection(writeUrl) },
                 { DriverManager.getConnection(readUrl) },
@@ -34,7 +34,7 @@ class Database(
                 converter
             )
 
-    constructor(writeUrl: String, maxConnections: Int = 30,converter: DbTypeConverter?=null) :
+    constructor(writeUrl: String, maxConnections: Int = 30, converter: DbTypeConverter? = null) :
             this(
                 { DriverManager.getConnection(writeUrl) },
                 null,
@@ -148,22 +148,16 @@ class Database(
      * __Do not use the context argument outside the block!__.
      */
     suspend fun <T> asyncContext(block: suspend (DbContext) -> T): T =
-        coroutineScope {
-            async(dispatcher) {
-                val ct = getContext()
-                try {
-                    block(ct)
-                } catch (t: Throwable) {
-                    error("unexpected error in asyncContext, context $ct", t)
-                    throw t
-                } finally {
-                    launch {
-                        // if something went bad the current context may be cancelling and release won't work,
-                        // so we release it in a separate coroutine
-                        releaseContext(ct)
-                    }
-                }
-            }.await()
+        withContext(dispatcher) {
+            val ct = getContext()
+            try {
+                block(ct)
+            } catch (t: Throwable) {
+                error("unexpected error in asyncContext, context $ct", t)
+                throw t
+            } finally {
+                releaseContext(ct)
+            }
         }
 
 
@@ -183,7 +177,7 @@ class Database(
      */
     suspend fun closeAllContexts(
         maxWaitTime: Duration = Duration.ofSeconds(3),
-        exclusiveBlock: ((Database) -> Unit)? = null
+        exclusiveBlock: ((Database) -> Unit)? = null,
     ) {
         inMutex {
             if (pause) throw IllegalStateException("pause is already in effect")

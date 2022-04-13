@@ -169,12 +169,8 @@ We will add a separate parameter later to control maximum number of allocated co
 
 ## Latest changes
 
-### 1.0.3
-
-Experimenta features:
-
-- JSON types tries to support both String or JsonObject based on available metadata
-- Enums could be storead as varchar or in in the database, kotyara tries to detect the proper format using driver-provided metadata.
+- support for most simple types, enums as integers or strings
+- improved stability on errors and cancellations in coroutines (asynContext)
 
 Enhancements
 

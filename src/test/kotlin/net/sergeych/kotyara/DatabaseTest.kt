@@ -64,6 +64,21 @@ internal class DatabaseTest {
 
     }
 
+    @Test
+    fun convertDoubles() {
+        val db = testDb()
+        db.inContext {
+            transaction {
+                val i = 177.107
+                val i1: Double? = queryOne("select ?", i)
+                val i2: Double? = queryOne("select (177.107)::double precision")
+                assertEquals(i, i1)
+                assertEquals(i, i2)
+            }
+        }
+
+    }
+
     @Suppress("UNCHECKED_CAST")
     @Test
     fun converter() {
@@ -327,19 +342,117 @@ internal class DatabaseTest {
     }
 
     @Test
+    fun freeSyncContextOnErrors() {
+        val db = testDb()
+        fun stats(prefix: String = "") {
+//            println("$prefix A:${db.activeConnections} P:${db.pooledConnections} !${db.leakedConnections} of ${db.maxConnections}")
+        }
+        stats()
+        db.withContext { println("$it") }
+        stats()
+        for (i in 1..5) {
+            try {
+                db.withContext {
+                    stats("in")
+                    throw IllegalStateException()
+                }
+            } catch (x: java.lang.IllegalStateException) {
+                stats("out")
+            }
+        }
+        stats("result")
+        assertEquals(db.activeConnections, db.pooledConnections)
+    }
+
+    @Test
+    fun freeAsyncContextOnErrors() {
+        val db = testDb()
+        fun stats(prefix: String = "") {
+//            println("$prefix A:${db.activeConnections} P:${db.pooledConnections} !${db.leakedConnections} of ${db.maxConnections}")
+        }
+        stats()
+        runBlocking {
+            db.asyncContext { println("$it") }
+            stats()
+            for (i in 1..5) {
+                try {
+                    db.asyncContext {
+                        db.asyncContext {
+                            db.asyncContext {
+                                db.asyncContext {
+                                    db.asyncContext {
+                                        db.asyncContext {
+
+                                            stats("inAsync")
+                                            throw IllegalStateException()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (x: java.lang.IllegalStateException) {
+                    stats("out")
+                }
+            }
+            stats("result2")
+            assertEquals(db.activeConnections, db.pooledConnections)
+        }
+    }
+
+    @Test
+    fun freeAsyncContextOnCancel() {
+        val db = testDb()
+        fun stats(prefix: String = "") {
+//            println("$prefix A:${db.activeConnections} P:${db.pooledConnections} !${db.leakedConnections} of ${db.maxConnections}")
+        }
+        stats()
+        runBlocking {
+            for( i in 1..5) {
+                db.asyncContext { println("$it") }
+                stats()
+                val job = launch {
+                    for (i in 1..5) {
+                        db.asyncContext {
+                            db.asyncContext {
+                                db.asyncContext {
+                                    db.asyncContext {
+                                        db.asyncContext {
+                                            db.asyncContext {
+                                                stats("inAsync")
+                                                delay(500)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                delay(199)
+                job.cancel()
+                job.join()
+                stats("result2")
+                assertEquals(db.activeConnections, db.pooledConnections)
+            }
+        }
+    }
+
+    @Test
     fun testLists() {
         val db = testDb()
-        db.withContext { dbc->
-            assertContentEquals(arrayOf(1231,22),dbc.queryOne<Array<Any>>("select '{1231,22}'::int[]"))
-            assertContentEquals(listOf(1231,221),dbc.queryOne<List<Any>>("select '{1231,221}'::int[]"))
+        db.withContext { dbc ->
+            assertContentEquals(arrayOf(1231, 22), dbc.queryOne<Array<Any>>("select '{1231,22}'::int[]"))
+            assertContentEquals(listOf(1231, 221), dbc.queryOne<List<Any>>("select '{1231,221}'::int[]"))
 
             dbc.sql("drop table if exists foobars")
             dbc.sql("create table foobars(foo int,bar varchar)")
-            for( i in 1..5) dbc.update("insert into foobars(foo,bar) values(?,?)", i, "val-$i")
+            for (i in 1..5) dbc.update("insert into foobars(foo,bar) values(?,?)", i, "val-$i")
 
             data class Foobar(val foo: Int, val bar: String)
-            val fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf(2,5))
-            assertEquals(listOf(2,5), fbs.map { it.foo })
+
+            val fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf(2, 5))
+            assertEquals(listOf(2, 5), fbs.map { it.foo })
 //            fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf("123"))
 //            fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf<Double>())
 //            assertEquals(0, fbs.size)
