@@ -5,11 +5,10 @@ plugins {
     kotlin("jvm") version "1.6.10"
     id("java-library")
     `maven-publish`
-
 }
 
 group = "net.sergeych"
-version = "1.0.5-SNAPSHOT"
+version = "1.0.5"
 
 repositories {
     mavenCentral()
@@ -18,10 +17,10 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:[1.6.0,)")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:[1.3,)")
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:42.3.3")
+    testImplementation("org.postgresql:postgresql:[42.3,)")
 }
 
 java {

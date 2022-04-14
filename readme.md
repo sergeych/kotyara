@@ -6,13 +6,9 @@ __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ 
 
 Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle. It was influenced by simplicity of scala's ANROM library. Pity kotlin has no language features to mimic it at a larger extent.
 
-> important note
+> Stable version: __1.0.5__ please use this or later
 
-If you get strange error like
-
-    java.lang.NoSuchMethodError: 'java.util.List java.util.stream.Stream.toList()'
-
-Consider using latest version `1.0.3-SNAPSHOT` that has a fix for it.
+Especially if you get strange error like `java.lang.NoSuchMethodError: 'java.util.List java.util.stream.Stream.toList()`
 
 
 ## Installation
@@ -25,7 +21,7 @@ dependencies {
     //...
     // do not forget to supply jdbc:
     implementation("org.postgresql:postgresql:42.3.1")
-    implementation("net.sergeych:kotyara:1.0.3")
+    implementation("net.sergeych:kotyara:1.0.5")
 }
 ~~~
 
