@@ -5,13 +5,13 @@ package net.sergeych.kotyara.db
 import net.sergeych.kotyara.DbException
 import net.sergeych.kotyara.asMany
 import net.sergeych.kotyara.asOne
-import net.sergeych.tools.Loggable
+import net.sergeych.mp_logger.debug
 import net.sergeych.tools.TaggedLogger
 import net.sergeych.tools.camelToSnakeCase
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
-class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable by TaggedLogger("RELN") {
+class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : TaggedLogger("RELN") {
 
     private var _limit: Int? = null
     private var _offset: Int? = null
@@ -94,7 +94,7 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : Loggable
 
         if( useForUpdate ) sql.append(" for update")
 
-        debug("sql built: $sql")
+        debug { "sql built: $sql" }
         return sql.toString()
     }
 

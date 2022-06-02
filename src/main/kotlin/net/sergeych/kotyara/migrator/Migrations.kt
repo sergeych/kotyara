@@ -2,13 +2,13 @@ package net.sergeych.kotyara.migrator
 
 import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.Schema
-import net.sergeych.tools.Loggable
+import net.sergeych.mp_logger.info
 import net.sergeych.tools.TaggedLogger
 
 /**
  * Set of migrations from some source, like list of files or embedded resources.
  */
-class Migrations(source: Iterable<Source>) : Loggable by TaggedLogger("MSRC") {
+class Migrations(source: Iterable<Source>) : TaggedLogger("MSRC") {
 
     data class Source(val name: String, val sql: String)
 
@@ -61,9 +61,9 @@ class Migrations(source: Iterable<Source>) : Loggable by TaggedLogger("MSRC") {
             repeatables.sortedBy { it.name }.filter { it.hash !in repetableHashes }
         )
         if( migrationsToPerform.size == 0)
-            info("no migrations needed")
+            info { "no migrations needed" }
         else
-            info("${migrationsToPerform.size} migration(s) to perform")
+            info { "${migrationsToPerform.size} migration(s) to perform" }
         return migrationsToPerform;
     }
 

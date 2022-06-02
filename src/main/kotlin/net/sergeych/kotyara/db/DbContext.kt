@@ -4,7 +4,9 @@ package net.sergeych.kotyara.db
 
 import net.sergeych.kotyara.*
 import net.sergeych.kotyara.tools.ConcurrentBag
-import net.sergeych.tools.Loggable
+import net.sergeych.mp_logger.debug
+import net.sergeych.mp_logger.exception
+import net.sergeych.mp_logger.ignoreExceptions
 import net.sergeych.tools.TaggedLogger
 import java.lang.IllegalStateException
 import java.sql.Connection
@@ -18,7 +20,7 @@ class DbContext(
     private val _readConnection: Connection,
     private val writeConnection: Connection = _readConnection,
     val converter: DbTypeConverter?
-) : Loggable by TaggedLogger("DBC") {
+) : TaggedLogger("DBC") {
 
     private val readConnection: Connection
         get() = if (inTransaction) writeConnection else _readConnection
@@ -129,7 +131,7 @@ class DbContext(
             try {
                 block(rs)
             } catch (x: Exception) {
-                error("withResultSet crashed", x)
+                exception {  "withResultSet crashed" to x }
                 throw x
             } finally {
                 rs.close()
@@ -148,7 +150,7 @@ class DbContext(
             try {
                 if (rs.next()) f(rs) else throw NotFoundException("database record not found")
             } catch (x: Exception) {
-                error("withResultSet crashed", x)
+                exception {  "withResultSet crashed" to x }
                 throw x
             } finally {
                 rs.close()
@@ -180,7 +182,7 @@ class DbContext(
         vararg args: Any?,
         f: (PreparedStatement) -> T
     ): T {
-        debug("WRS $sql {${args.joinToString(",")}}")
+        debug { "WRS $sql {${args.joinToString(",")}}" }
         val statement = readStatementCache.remove(sql) ?: readConnection.prepareStatement(
             sql,
             PreparedStatement.RETURN_GENERATED_KEYS
@@ -209,10 +211,10 @@ class DbContext(
         vararg args: Any?,
         f: (PreparedStatement) -> T
     ): T {
-        debug("WWS $sql [${args.joinToString(",")}]")
+        debug { "WWS $sql [${args.joinToString(",")}]" }
         val isInTransaction = inTransaction
         val statement = if (isInTransaction) {
-            debug("in transaction, cache will not be used")
+            debug {"in transaction, cache will not be used" }
             writeConnection.prepareStatement(sql)
         } else
             writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
@@ -250,21 +252,21 @@ class DbContext(
         writeConnection.autoCommit = false
         val sp = writeConnection.setSavepoint()
         savepointLevel.incrementAndGet()
-        debug("created savepoint object: ${sp.savepointId}, level is ${savepointLevel.get()}")
+        debug {"created savepoint object: ${sp.savepointId}, level is ${savepointLevel.get()}" }
         try {
-            debug("running inside the savepoint $sp")
+            debug {"running inside the savepoint $sp" }
             val result = f()
-            debug("performing savepoint commit ${sp.savepointId}")
+            debug {"performing savepoint commit ${sp.savepointId}" }
             // commit is done by restoring autocommit
 //            writeConnection.commit()
             return result
         } catch (x: Exception) {
-            debug("exception in savepoint ${sp.savepointId} will cause rollback: $x")
+            debug {"exception in savepoint ${sp.savepointId} will cause rollback: $x" }
             writeConnection.rollback(sp)
             throw x
         } finally {
             val level = savepointLevel.decrementAndGet()
-            debug("cleaning savepoint ${sp.savepointId} ot level ${level} / $was")
+            debug {"cleaning savepoint ${sp.savepointId} ot level ${level} / $was" }
             writeConnection.autoCommit = was
         }
     }
@@ -275,18 +277,18 @@ class DbContext(
         val sp = writeConnection.setSavepoint()
         savepointLevel.incrementAndGet()
         try {
-            debug("running inside the savepoint $sp")
+            debug {"running inside the savepoint $sp" }
             val result = f()
-            debug("performing savepoint commit $sp")
+            debug {"performing savepoint commit $sp" }
 //            writeConnection.commit()
             return result
         } catch (x: Exception) {
-            debug("exception in savepoint $sp will cause rollback: $x")
+            debug {"exception in savepoint $sp will cause rollback: $x" }
             writeConnection.rollback(sp)
             throw x
         } finally {
             val level = savepointLevel.decrementAndGet()
-            debug("cleaning savepoint $sp ot level ${level} / $was")
+            debug {"cleaning savepoint $sp ot level ${level} / $was" }
             writeConnection.autoCommit = was
         }
     }
@@ -324,7 +326,7 @@ class DbContext(
             for (line in commands) {
                 writeConnection.prepareStatement(line).use {
                     val result = it.executeUpdate()
-                    debug("EXECUTED: $result")
+                    debug {"EXECUTED: $result" }
                 }
             }
         }
@@ -378,7 +380,7 @@ class DbContext(
             ignoreExceptions {
                 readConnection.close()
             }
-            debug("DbContext $this is closed")
+            debug {"DbContext $this is closed" }
         }
     }
 

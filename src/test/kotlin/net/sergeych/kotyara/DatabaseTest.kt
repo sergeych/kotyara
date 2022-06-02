@@ -3,7 +3,7 @@ package net.sergeych.kotyara
 import kotlinx.coroutines.*
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
-import net.sergeych.tools.Logger
+import net.sergeych.mp_logger.Log
 import net.sergeych.tools.iso8601
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
@@ -206,7 +206,7 @@ internal class DatabaseTest {
 
     @Test
     fun relationAll() {
-        Logger.connectStdout()
+        Log.connectConsole(Log.Level.DEBUG)
 
         testDb().inContext {
             executeAll(
@@ -269,7 +269,7 @@ internal class DatabaseTest {
         val N = 5
         val db = testDb(3)
         val x = AtomicInteger(0)
-        Logger.connectStdout(Logger.Severity.DEBUG)
+        Log.connectConsole(Log.Level.DEBUG)
         runBlocking {
             for (rep in 1..1) {
                 bm {
@@ -329,7 +329,7 @@ internal class DatabaseTest {
             dbc.sql("drop table if exists params")
             dbc.sql("drop table if exists __performed_migrations")
         }
-        Logger.connectStdout()
+        Log.connectConsole()
         db.migrateWithResources(this.javaClass, PostgresSchema(), "/migration_test1")
 
         db.withContext { ct ->

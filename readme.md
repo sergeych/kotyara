@@ -6,7 +6,7 @@ __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ 
 
 Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle. It was influenced by simplicity of scala's ANROM library. Pity kotlin has no language features to mimic it at a larger extent.
 
-> Stable version: __1.0.5__ please use this or later
+> Stable version: __1.1.0__ please use this or later
 
 Especially if you get strange error like `java.lang.NoSuchMethodError: 'java.util.List java.util.stream.Stream.toList()`
 
@@ -21,7 +21,7 @@ dependencies {
     //...
     // do not forget to supply jdbc:
     implementation("org.postgresql:postgresql:42.3.1")
-    implementation("net.sergeych:kotyara:1.0.5")
+    implementation("net.sergeych:kotyara:1.1.0")
 }
 ~~~
 
@@ -165,6 +165,12 @@ We will add a separate parameter later to control maximum number of allocated co
 
 ## Latest changes
 
+## Incompatible changes in `1.1.*`
+
+- Logging support is migrated to effective async logger from [mp_stools](https://github.com/sergeych/mp_stools). It is fatser, more robust especially due to some known problems with systemd journal, and more feature rich. Old logging tools are mostly removed.
+
+## Extensions
+
 - support for most simple types, enums as integers or strings
 - improved stability on errors and cancellations in coroutines (asynContext)
 
@@ -173,6 +179,9 @@ Enhancements
 - added user conversions [DbTypeConverter] interface could be  can be added as an optional parameter of `Database()` constructor
 - support for java.time.Instant
 - few bugs fixed
+
+
+
 
 ## Nearest plans
 

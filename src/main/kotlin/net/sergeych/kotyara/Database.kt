@@ -6,7 +6,10 @@ import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.tools.UnitNotifier
 import net.sergeych.kotyara.tools.withReentrantLock
-import net.sergeych.tools.Loggable
+import net.sergeych.mp_logger.debug
+import net.sergeych.mp_logger.exception
+import net.sergeych.mp_logger.info
+import net.sergeych.mp_logger.warning
 import net.sergeych.tools.TaggedLogger
 import java.sql.Connection
 import java.sql.DriverManager
@@ -24,7 +27,7 @@ class Database(
 //    var maxIdleConnections: Int = 5,
     private var _maxConnections: Int = 30,
     private val converter: DbTypeConverter? = null,
-) : Loggable by TaggedLogger("DBSE") {
+) : TaggedLogger("DBSE") {
 
     constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30, converter: DbTypeConverter? = null) :
             this(
@@ -89,10 +92,10 @@ class Database(
                 } else DbContext(readConnectionFactory(), writeConnectionFactory(), converter)
                 activeConnections++
                 (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize++
-                info("Connection added: $activeConnections / $maxConnections / $leakedConnections")
+                info { "Connection added: $activeConnections / $maxConnections / $leakedConnections" }
                 return dbc
             } else {
-                warning("Connection pool is empty, active: $activeConnections")
+                warning { "Connection pool is empty, active: $activeConnections" }
                 throw NoMoreConnectionsException()
             }
         } finally {
@@ -107,15 +110,15 @@ class Database(
         } catch (e: Exception) {
             if (e is InterruptedException)
                 throw e
-            error("exception in releaseContext, this could leak connection $ct", e)
+            exception { "in releaseContext, this could leak connection $ct" to e }
             inMutex {
                 activeConnections--
                 leakedConnections++
             }
-            info("reset connections data: $activeConnections / $maxConnections / $leakedConnections")
+            info { "reset connections data: $activeConnections / $maxConnections / $leakedConnections" }
             try {
                 ct.close()
-                info("leaked connection has been closed, it will cause error in its user(s)")
+                info { "leaked connection has been closed, it will cause error in its user(s)" }
             } catch (e: Exception) {
                 if (e is InterruptedException) throw e
                 error("failed to close leaked connection $ct")
@@ -153,7 +156,7 @@ class Database(
             try {
                 block(ct)
             } catch (t: Throwable) {
-                error("unexpected error in asyncContext, context $ct", t)
+                exception { "unexpected error in asyncContext, context $ct" to t }
                 throw t
             } finally {
                 releaseContext(ct)
@@ -184,14 +187,14 @@ class Database(
             pause = true
         }
         try {
-            debug("closeAllContexts() started")
+            debug { "closeAllContexts() started" }
             dispatcher.close()
             keeperLock.pulse(Unit)
             closeAllEvent.await(maxWaitTime.toMillis())
             if (activeConnections > 0)
                 throw TimeoutException("closeAllConnections: some connections could not be closed")
             while (pool.isNotEmpty()) destroyContext(pool.removeLast())
-            debug("closeAllConnection() performed successfully")
+            debug { "closeAllConnection() performed successfully" }
             exclusiveBlock?.let { handler ->
                 val db = Database(writeConnectionFactory, readConnectionFactory)
                 handler(db)
@@ -214,7 +217,7 @@ class Database(
         isClosed = true
         if (!(waitTime.isNegative || waitTime.isZero)) {
             closeAllContexts(waitTime)
-            debug("close(): all connections are closed")
+            debug { "close(): all connections are closed" }
         } else {
             // keeper thread will close it all
             keeperLock.pulse()
@@ -230,7 +233,7 @@ class Database(
 
     init {
         CoroutineScope(Dispatchers.Unconfined).launch {
-            debug("starting keeper coroutine in scope $this")
+            debug { "starting keeper coroutine in scope $this" }
             try {
                 while (!isClosed) {
                     keeperLock.await(if (maxConnections < activeConnections) 200 else 1000)
@@ -242,20 +245,20 @@ class Database(
                                 try {
                                     destroyContext(ct); counter++
                                 } catch (x: Throwable) {
-                                    error("Exception while destroying context by keeper: $ct")
+                                    exception {  "Exception while destroying context by keeper" to x }
                                 }
                             }
                     }
                     if (counter > 0)
-                        debug("Keeper has released $counter contexts, active $activeConnections, pool: ${pool.size}")
+                        debug { "Keeper has released $counter contexts, active $activeConnections, pool: ${pool.size}" }
 //                    if (activeConnections == 0) closeAllEvent.pulse()
 
                 }
             } catch (x: Throwable) {
                 if (x !is InterruptedException)
-                    error("keeper thread $this aborted", x)
+                    exception {  "keeper thread $this aborted" to x }
             } finally {
-                debug("keeper thread for $this is finished")
+                debug { "keeper thread for $this is finished" }
             }
         }
     }

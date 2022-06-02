@@ -4,21 +4,15 @@ import kotlinx.coroutines.runBlocking
 import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.migrator.MigrationException
 import net.sergeych.kotyara.migrator.Migrations
-import net.sergeych.tools.Loggable
+import net.sergeych.mp_logger.debug
+import net.sergeych.mp_logger.exception
 import net.sergeych.tools.ResourceHandle
 import net.sergeych.tools.TaggedLogger
-import java.lang.Exception
-import java.lang.IllegalArgumentException
-import java.lang.RuntimeException
 import java.time.Duration
-import kotlin.collections.HashMap
-import kotlin.io.path.Path
-import kotlin.io.path.name
 
 typealias MigrationHandler = (DbContext) -> Unit
 
-abstract class Schema(private val useTransactions: Boolean) :
-    Loggable by TaggedLogger("SCHM") {
+abstract class Schema(private val useTransactions: Boolean) : TaggedLogger("SCHM") {
 
     private val beforeHandlers = HashMap<Int, MigrationHandler>()
     private val afterHandlers = HashMap<Int, MigrationHandler>()
@@ -52,11 +46,11 @@ abstract class Schema(private val useTransactions: Boolean) :
 
     fun migrateWithResources(klass: Class<*>, db: Database, resourcePath: String = "db/migrations") {
         val rr = ResourceHandle.list(klass, resourcePath)
-        debug("Found migration resources: $resourcePath: $rr")
+        debug { "Found migration resources: $resourcePath: $rr" }
         migrate(
             db,
             Migrations(rr.map {
-                debug("found: ${it.name}")
+                debug { "found: ${it.name}" }
                 Migrations.Source(it.name, it.text)
             })
         )
@@ -68,7 +62,7 @@ abstract class Schema(private val useTransactions: Boolean) :
     ) {
 
         fun doMigrations(db: Database) {
-            debug("starting migrations")
+            debug { "starting migrations" }
             // note beforeall is called before any connection will be created
             // and afler all connections (contexts) will be closed
             beforeAll()
@@ -110,22 +104,22 @@ abstract class Schema(private val useTransactions: Boolean) :
         for (m in migrations.toPerform(cxt)) {
             try {
                 cxt.transaction {
-                    debug("performing $m")
+                    debug {"performing $m" }
                     m.version?.let { v ->
                         beforeHandlers[v]?.let {
-                            debug("calling before-handler for version $v")
+                            debug {"calling before-handler for version $v" }
                             it(cxt)
-                            debug("executed before-handler for version $v")
+                            debug {"executed before-handler for version $v" }
                         }
                     }
-                    debug("executing migration sql")
+                    debug {"executing migration sql" }
                     cxt.executeAll(m.sql)
-                    debug("executed migration sql")
+                    debug {"executed migration sql" }
                     m.version?.let { v ->
                         afterHandlers[v]?.let {
-                            debug("calling after-handler for version $v")
+                            debug {"calling after-handler for version $v" }
                             it(cxt)
-                            debug("executed after-handler for version $v")
+                            debug {"executed after-handler for version $v" }
                         }
                     }
                     cxt.sql("delete from ${migrationsTable} where name=?", m.name)
@@ -133,10 +127,10 @@ abstract class Schema(private val useTransactions: Boolean) :
                         "insert into ${migrationsTable}(name, version, hash) values(?,?,?)",
                         m.name, m.version, m.hash
                     )
-                    debug("migration performed: $m")
+                    debug {"migration performed: $m" }
                 }
             } catch (x: Exception) {
-                error("migration $m failed", x)
+                exception {  "migration $m failed" to x }
                 throw MigrationException("migration failed: $m", x)
             }
         }

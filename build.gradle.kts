@@ -2,13 +2,13 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.6.10"
+    kotlin("jvm") version "1.6.20"
     id("java-library")
     `maven-publish`
 }
 
 group = "net.sergeych"
-version = "1.0.5"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -17,10 +17,11 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:[1.6.0,)")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:[1.3,)")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    implementation("net.sergeych:mp_stools:1.2.1-SNAPSHOT")
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:[42.3,)")
+    testImplementation("org.postgresql:postgresql:42.3.3")
 }
 
 java {
@@ -60,6 +61,11 @@ tasks.jar {
 java {
     withSourcesJar()
 }
+
+configurations.all {
+    resolutionStrategy.cacheChangingModulesFor(8, "seconds")
+}
+
 
 //tasks.register<Copy>("localRelease") {
 //    dependsOn("jar")
