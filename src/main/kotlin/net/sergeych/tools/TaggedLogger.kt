@@ -9,7 +9,7 @@ import net.sergeych.mp_logger.Loggable
 open class TaggedLogger(private val _prefix: String) : Loggable {
     val prefix by lazy { }
 
-    override var logLevel: Log.Level? = null
+    override var logLevel: Log.Level? = Log.Level.INFO
 
     override var logTag: String = "${System.identityHashCode(this).toString(16)} $_prefix"
 }

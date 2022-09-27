@@ -2,13 +2,14 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.6.20"
+    kotlin("jvm") version "1.7.10"
+    kotlin("plugin.serialization") version "1.7.10"
     id("java-library")
     `maven-publish`
 }
 
 group = "net.sergeych"
-version = "1.2.0-SNAPSHOT"
+version = "1.2.6-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -17,11 +18,11 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation("net.sergeych:mp_stools:1.2.1-SNAPSHOT")
+    implementation("net.sergeych:boss-serialization-mp:0.1.4-SNAPSHOT")
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:42.3.3")
+    testImplementation("org.postgresql:postgresql:42.5.0")
 }
 
 java {

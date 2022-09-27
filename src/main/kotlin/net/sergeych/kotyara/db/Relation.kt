@@ -28,12 +28,22 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : TaggedLo
     private val statementParams = mutableListOf<Any?>()
     private val order = mutableListOf<String>()
 
+    /**
+     * Add specified where clause. All such clauses are combined with "AND". Updates
+     * self state and return self.
+     * @return self
+     */
     fun where(whereClause: String,vararg params: Any): Relation<T> {
         whereClauses.add(whereClause)
         statementParams.addAll(params)
         return this
     }
 
+    /**
+     * Add specified where clauses of type {pair.first} = {pair.second} all compbined by AND.
+     * Properly process null values in pair.second. Updates self state and return self.
+     * @return self
+     */
     fun where(vararg pairs: Pair<String,Any?>): Relation<T> {
         for( (name, value) in pairs) {
             if( value == null )

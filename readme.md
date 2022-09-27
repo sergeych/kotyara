@@ -2,7 +2,10 @@
 
 __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
 
-> this library is in production stage (postgres). Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
+This library is in production stage (postgres). Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
+
+> Impornant note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
+
 
 ## 1.2 experimental:
 

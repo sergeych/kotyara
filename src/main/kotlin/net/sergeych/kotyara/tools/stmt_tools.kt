@@ -6,11 +6,13 @@ import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import net.sergeych.boss_serialization_mp.BossEncoder
 import java.math.BigDecimal
 import java.sql.PreparedStatement
 import java.sql.Timestamp
 import java.sql.Types.*
 import java.time.*
+import kotlin.reflect.full.createType
 
 @OptIn(InternalSerializationApi::class)
 fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
@@ -40,6 +42,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is LocalDateTime -> setTimestamp(n, Timestamp.valueOf(x))
         is LocalDate -> setTimestamp(n, Timestamp.valueOf(LocalDateTime.of(x, LocalTime.MIN)))
         is ZonedDateTime -> setTimestamp(n, Timestamp.valueOf(x.toLocalDateTime()))
+        is Set<*> -> setValue(n, x.toList(), sql)
         is List<*> -> {
             val array =
                 if (x.size == 0) throw IllegalArgumentException("empty array can't be a parameter of a statement")
@@ -57,7 +60,6 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
                             "varchar"
                         }
                     }
-                    println("col type: ${type}: ${parameterMetaData?.getParameterType(n)}")
                     connection.createArrayOf(type,
                         (if (convertToString) x.map { it.toString() } else x).toTypedArray())
                 }
@@ -67,6 +69,13 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
             Timestamp.valueOf(ZonedDateTime.ofInstant(x, ZoneId.systemDefault()).toLocalDateTime()))
         null -> setObject(n, null)
         else -> {
+            // lets try to encode with boss
+            try {
+                setBytes(n, BossEncoder.encode(x::class.createType(), x))
+            }
+            catch(x: Exception) {
+                throw IllegalArgumentException("unknown param[$n]:$x type: ${x::class.qualifiedName} from $sql", x)
+            }
             // all this need to save parameter class: leave for later
 //            println("param type: ${parameterMetaData?.getParameterTypeName(n)}")
 //            if (parameterMetaData?.getParameterTypeName(n)?.startsWith("json") == true) {
@@ -75,7 +84,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
 //                setObject(n, Json.encodeToString(x), java.sql.Types.OTHER)
 //            }
 //            else
-            throw IllegalArgumentException("unknown param[$n]:$x type: ${x::class.qualifiedName} from $sql")
+
         }
     }
 }

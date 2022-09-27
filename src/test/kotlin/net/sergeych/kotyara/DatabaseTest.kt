@@ -1,9 +1,12 @@
 package net.sergeych.kotyara
 
 import kotlinx.coroutines.*
+import kotlinx.serialization.Serializable
+import net.sergeych.boss_serialization_mp.BossEncoder
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.mp_logger.Log
+import net.sergeych.mptools.toDump
 import net.sergeych.tools.iso8601
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
@@ -74,6 +77,24 @@ internal class DatabaseTest {
                 val i2: Double? = queryOne("select (177.107)::double precision")
                 assertEquals(i, i1)
                 assertEquals(i, i2)
+            }
+        }
+
+    }
+
+
+    @Serializable
+    data class S1(val i: Int,val s: String)
+    @Test
+    fun convertBoss() {
+        val db = testDb()
+                val s1 = S1(42, "foobar")
+        val x = BossEncoder.encode(s1)
+        println(x.toDump())
+        db.inContext {
+            transaction {
+                val s2: S1? = queryOne("select ?", s1)
+                assertEquals(s1, s2)
             }
         }
 

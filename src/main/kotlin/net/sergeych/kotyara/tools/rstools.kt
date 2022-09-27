@@ -3,6 +3,7 @@ package net.sergeych.kotyara
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import net.sergeych.boss_serialization.BossDecoder
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.tools.camelToSnakeCase
 import java.math.BigDecimal
@@ -13,6 +14,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.*
 import kotlin.reflect.KClass
+import kotlin.reflect.full.createType
 import kotlin.reflect.jvm.jvmErasure
 
 @Suppress("IMPLICIT_CAST_TO_ANY")
@@ -44,8 +46,13 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
                 } else {
                     cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.name == x.toString() }
                 }
-            } else
-                throw DbException("unknown param type $cls for column '$colName'")
+            } else {
+                try {
+                    BossDecoder.decodeFrom<Any?>(cls.createType(),getBytes(colName))
+                } catch(x: Exception) {
+                    throw DbException("unknown param type $cls for column '$colName'", x)
+                }
+            }
         }
     }
     @Suppress("UNCHECKED_CAST")

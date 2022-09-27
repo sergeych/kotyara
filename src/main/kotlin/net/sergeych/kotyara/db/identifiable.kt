@@ -2,10 +2,10 @@
 
 package net.sergeych.kotyara.db
 
-import kotlin.reflect.KClass
 import net.sergeych.kotyara.DbException
 import net.sergeych.kotyara.NotFoundException
 import net.sergeych.tools.camelToSnakeCase
+import kotlin.reflect.KClass
 
 interface Identifiable<T> {
     val id: T
@@ -15,13 +15,13 @@ typealias IdentifiableRecord = Identifiable<Long>
 
 inline fun <reified T : IdentifiableRecord>T.reload(dbc: DbContext): T = dbc.byId<T>(id) ?: throw NotFoundException()
 
-inline fun <reified T : IdentifiableRecord>T.destroy(dbc: DbContext) {
+inline fun <reified T : Identifiable<*>>T.destroy(dbc: DbContext) {
     val name = T::class.simpleName?.camelToSnakeCase()?.toTableName()
     dbc.update("delete from $name where id = ?", id)
 }
 
-inline fun <reified T : IdentifiableRecord>T.forUpdate(dbc: DbContext): T =
-    dbc.byIdForUpdate<T>(id) ?: throw NotFoundException()
+inline fun <reified T : Identifiable<*>>T.forUpdate(dbc: DbContext): T =
+    dbc.byIdForUpdate<T>(id as Any) ?: throw NotFoundException()
 
 class HasOne<I,T: Identifiable<I>>(private val cls: KClass<T>, private val idProvider: () -> I?) {
 
@@ -68,7 +68,7 @@ class HasMany<T : IdentifiableRecord>(private val cls: KClass<T>, private val id
         return relation(dbc, forUpdate, builder).all.also { cachedValue = it }
     }
 
-    fun relation(dbc: DbContext, forUpdate: Boolean, builder: (Relation<T>.() -> Unit)? = null): Relation<T> {
+    fun relation(dbc: DbContext, forUpdate: Boolean = false, builder: (Relation<T>.() -> Unit)? = null): Relation<T> {
         var rel = Relation(dbc, cls)
         rel.idProvider()
         builder?.let { rel.it() }
@@ -109,7 +109,7 @@ inline fun <reified T : IdentifiableRecord> hasMany(noinline idProvider: Relatio
  * @throws DbException if affected rows is different, or if update operation otherwise fails.
  */
 
-fun DbContext.updateCheck(sqlClause: String,vararg args: Any,expectedCount: Int = 1) {
+fun DbContext.updateCheck(expectedCount: Int,sqlClause: String,vararg args: Any) {
     val count = update(sqlClause, *args)
     if( expectedCount != count )
         throw DbException("expected $expectedCount affected records, got $count")
