@@ -63,17 +63,10 @@ java {
     withSourcesJar()
 }
 
-configurations.all {
-    resolutionStrategy.cacheChangingModulesFor(8, "seconds")
-}
-
-
-//tasks.register<Copy>("localRelease") {
-//    dependsOn("jar")
-//    from("$rootDir/build/libs/kotyara-$version.jar")
-//    into("$rootDir/../jarlib")
-//    rename { "kotyara.jar" }
+//configurations.all {
+//    resolutionStrategy.cacheChangingModulesFor(8, "seconds")
 //}
+
 
 publishing {
     publications {
