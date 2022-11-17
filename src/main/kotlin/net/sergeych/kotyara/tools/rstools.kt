@@ -78,7 +78,15 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>, converter: DbTypeConverter?): T?
                 columnName
             )
     }
-    return constructor.call(*args.toTypedArray())
+    try {
+        return constructor.call(*args.toTypedArray())
+    }
+    catch(x: Exception) {
+        throw IllegalArgumentException(
+            "failed to create instance of ${klass.simpleName}(${args.joinToString(",") { "$it: ${it?.javaClass?.simpleName}" }}",
+            x
+        )
+    }
 }
 
 fun <T : Any> ResultSet.asMany(klass: KClass<T>,converter: DbTypeConverter?): List<T> {

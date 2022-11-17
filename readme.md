@@ -6,11 +6,18 @@ This library is in production stage (postgres). Few interfaces could be changed.
 
 > Impornant note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
+# Current stable: 1.2.7-rc1 
+
+## 1.2.7 release 
+
+This release is supposed to be productino stable with many new features. It is compiled with __java 1.8__ to get best bytecode compatibility.
 
 ## 1.2 experimental:
 
-This is a 1.2 branch, yet expermental. Its main differences:
+This is a 1.2 branch, main points:
 
+- support of most scalar adn popular java date/time types
+- Boss encoding if unknown parameter types (bytea is expected)
 - Added `Identifiable<T>` record type with untility functions like `byId(), reload() and destroy()`
 - Added `hasMany` and `hasOne` tools to work with `Identifiable` records.
 
@@ -31,7 +38,7 @@ dependencies {
     //...
     // do not forget to supply jdbc:
     implementation("org.postgresql:postgresql:42.3.1")
-    implementation("net.sergeych:kotyara:1.1.0")
+    implementation("net.sergeych:kotyara:${current_version}")
 }
 ~~~
 

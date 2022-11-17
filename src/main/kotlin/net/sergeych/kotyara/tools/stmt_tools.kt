@@ -69,7 +69,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
             Timestamp.valueOf(ZonedDateTime.ofInstant(x, ZoneId.systemDefault()).toLocalDateTime()))
         null -> setObject(n, null)
         else -> {
-            // lets try to encode with boss
+            // let's try to encode with boss
             try {
                 setBytes(n, BossEncoder.encode(x::class.createType(), x))
             }
