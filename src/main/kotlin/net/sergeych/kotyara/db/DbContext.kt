@@ -8,7 +8,6 @@ import net.sergeych.mp_logger.debug
 import net.sergeych.mp_logger.exception
 import net.sergeych.mp_logger.ignoreExceptions
 import net.sergeych.tools.TaggedLogger
-import java.lang.IllegalStateException
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
@@ -345,8 +344,8 @@ class DbContext(
      * The weak part of it is that it always deserializes to the instance of type provided ny creation. We plan to
      * add more complex `kotlinx.serialization` based solution for more complex objects.
      */
-    inline fun <reified T : Any> select(): Relation<T> =
-        Relation(this, T::class)
+    inline fun <reified T : Any> select(overrideTableName: String?=null): Relation<T> =
+        Relation(this, T::class, overrideTableName)
 
     inline fun <reified T : Any> byId(id: Any): T? =
         select<T>().where("id = ?", id).first

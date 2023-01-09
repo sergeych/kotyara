@@ -6,37 +6,139 @@ import net.sergeych.kotyara.DbException
 import net.sergeych.kotyara.asMany
 import net.sergeych.kotyara.asOne
 import net.sergeych.mp_logger.debug
+import net.sergeych.mp_logger.warning
 import net.sergeych.tools.TaggedLogger
-import net.sergeych.tools.camelToSnakeCase
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
-class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : TaggedLogger("RELN") {
+class Relation<T : Any>(
+    val context: DbContext,
+    val klass: KClass<T>,
+    overrideTableName: String? = null,
+    overrideFieldName: String? = null,
+) :
+    TaggedLogger("RELN") {
 
     private var _limit: Int? = null
     private var _offset: Int? = null
 
-    private val selectClause = "SELECT * FROM ${getTableName()}"
 
-    private fun getTableName(): String {
-        // todo: scan for annotation in the klass that overrides table name
-        return klass.simpleName?.camelToSnakeCase()?.toTableName()
-            ?: throw DbException("relation needs a non-anonymous class")
+    val tableName: String
+    val fieldName: String
+
+    init {
+        when {
+            overrideFieldName == null && overrideTableName != null -> {
+                warning { "table name is overridden table name but field name id not, could cause problem with include()" }
+                tableName = overrideTableName
+                fieldName = tableName
+            }
+
+            overrideFieldName != null && overrideTableName == null -> {
+                tableName = overrideFieldName.toTableName()
+                fieldName = overrideFieldName
+            }
+
+            overrideFieldName != null && overrideTableName != null -> {
+                tableName = overrideTableName
+                fieldName = overrideFieldName
+            }
+
+            else -> {
+                val className = klass.simpleName
+                    ?: throw DbException("relation needs either a non-anonymous class or overridden names")
+                tableName = className.toTableName()
+                fieldName = className.toFieldName()
+            }
+        }
     }
+
+    private val selectClause = "SELECT * FROM $tableName"
+    private val joins = mutableListOf<String>()
 
     private val whereClauses = mutableListOf<String>()
     private val statementParams = mutableListOf<Any?>()
     private val order = mutableListOf<String>()
+
 
     /**
      * Add specified where clause. All such clauses are combined with "AND". Updates
      * self state and return self.
      * @return self
      */
-    fun where(whereClause: String,vararg params: Any): Relation<T> {
+    fun where(whereClause: String, vararg params: Any): Relation<T> {
         whereClauses.add(whereClause)
         statementParams.addAll(params)
         return this
+    }
+
+    /**
+     * Add join expression, like `join("left join presents by persons.id=presents.person_id)`
+     * don't forget to use full table name for the main table
+     */
+    fun addJoin(clause: String): Relation<T> {
+        joins.add(clause)
+        return this
+    }
+
+    /**
+     * Simple inner join in __many to one scenario__ another table, using default naming convention or overridden field values.
+     * note that it only works when this table field matches to foreign table key, like in this example:
+     * ~~~
+     * println(select<Present>().join<Person>().toString())
+     * ~~~
+     * will produce
+     * ~~~
+     * SELECT * FROM presents
+     * inner join persons on persons.id=presents.person_id
+     * ~~~
+     * __If you need reverse case, e.g. include all presents for a person, use__ [include].
+     *
+     * Arguments allows to override default naming. It is it not enough, join tables using [addJoin]
+     * which gives maximum flexibility.
+     *
+     * @param fieldName our field name that points to joined table name, if null the U class name will
+     *        be used to generate proper name, e.g. converted to snake case and `"_id"` added, as in
+     *        the example above
+     * @param foreignKey default `"id"` could be overriden here
+     */
+    inline fun <reified U> join(
+        fieldName: String? = null,
+        foreignKey: String = "id",
+    ): Relation<T> {
+        val clsName = U::class.simpleName!!
+        val otherTableName = clsName.toTableName()
+        val ourField = fieldName ?: "${clsName.toFieldName()}_id"
+        return addJoin(
+            "inner join $otherTableName on ${otherTableName}.${foreignKey}=$tableName.$ourField"
+        )
+    }
+
+    /**
+     * Join to include all `U` instances, like [join] nut for one-to-many cases, for example:
+     * ~~~
+     * var z = select<Person>().include<Present>()
+     *            .where("presents.name = ?", "doll")
+     * println(z.toString())
+     * ~~~
+     * produces
+     * ~~~
+     * SELECT * FROM persons
+     * inner join presents on presents.person_id=persons.id
+     * where (presents.name = ?)
+     * ~~~
+     */
+    inline fun <reified U> include(
+        theirFieldName: String? = null,
+        localKeyName: String = "id",
+    ): Relation<T> {
+        val clsName = U::class.simpleName!!
+        val otherTableName = clsName.toTableName()
+        val name = theirFieldName ?: "${fieldName}_id"
+        return addJoin(
+            "inner join $otherTableName on ${otherTableName}.${name}=$tableName.$localKeyName"
+        )
+
     }
 
     /**
@@ -44,9 +146,9 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : TaggedLo
      * Properly process null values in pair.second. Updates self state and return self.
      * @return self
      */
-    fun where(vararg pairs: Pair<String,Any?>): Relation<T> {
-        for( (name, value) in pairs) {
-            if( value == null )
+    fun where(vararg pairs: Pair<String, Any?>): Relation<T> {
+        for ((name, value) in pairs) {
+            if (value == null)
                 whereClauses.add("$name is null")
             else {
                 whereClauses.add("$name = ?")
@@ -74,7 +176,7 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : TaggedLo
     private fun dropCache() {}
 
     override fun toString(): String {
-        return "Rel($selectClause)"
+        return "${buildSql()}\n: $statementParams"
     }
 
     private var useForUpdate = false
@@ -86,25 +188,27 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : TaggedLo
 
     fun buildSql(overrideLimit: Int? = null): String {
         val sql = StringBuilder(selectClause)
+        for (j in joins) sql.append("\n$j")
         // todo: possible joins
-        if( whereClauses.isNotEmpty()) {
-            sql.append(" where")
+        if (whereClauses.isNotEmpty()) {
+            sql.append("\nwhere")
             sql.append(whereClauses.joinToString(" and") { " ($it)" })
         }
-        if( order.isNotEmpty()) {
-            sql.append(" order by ")
+        if (order.isNotEmpty()) {
+            sql.append("\norder by ")
             sql.append(order.joinToString(","))
         }
-        if( overrideLimit != null )
-            sql.append(" limit 1")
+        if (overrideLimit != null || _limit != null || _offset != null) sql.append("\n")
+        if (overrideLimit != null)
+            sql.append(" limit $overrideLimit")
         else
             _limit?.let { sql.append(" limit $it") }
 
         _offset?.let { sql.append(" offset $it") }
 
-        if( useForUpdate ) sql.append(" for update")
+        if (useForUpdate) sql.append(" for update")
 
-        debug { "sql built: $sql" }
+        debug { "Build sql: $this" }
         return sql.toString()
     }
 
@@ -114,10 +218,10 @@ class Relation<T : Any>(val context: DbContext, val klass: KClass<T>) : TaggedLo
 
     val all: List<T>
         get() =
-            withResultSet { it.asMany(klass,context.converter) }
+            withResultSet { it.asMany(klass, context.converter) }
 
     val first: T?
         get() =
-            withResultSet(1) { it.asOne(klass,context.converter) }
+            withResultSet(1) { it.asOne(klass, context.converter) }
 
 }

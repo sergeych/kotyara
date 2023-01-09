@@ -6,11 +6,15 @@ This library is in production stage (postgres). Few interfaces could be changed.
 
 > Impornant note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
-# Current stable: 1.2.7-rc1 
+# Current stable: 1.2.7-rc3 
 
 ## 1.2.7 release 
 
-This release is supposed to be productino stable with many new features. It is compiled with __java 1.8__ to get best bytecode compatibility.
+This release is supposed to be productino stable with many new features. It is compiled with __java 1.8__ to get best bytecode compatibility and contain amny syntax sugar additions and better types compatibility. Some of the changelog:
+
+- `Relation.join` and `.addJoin` to simple and convenient add joined tables to `dbc.select()`
+- `Relation.include` as syntax sugar for join for one-to-namy case
+- Relation now has tracing `toString()` implementation that contain generated SQL and list of parameters
 
 ## 1.2 experimental:
 

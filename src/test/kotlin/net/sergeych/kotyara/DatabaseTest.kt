@@ -38,6 +38,7 @@ internal class DatabaseTest {
 
     companion object {
         @BeforeAll
+        @JvmStatic
         fun initDriver() {
             Class.forName("org.postgresql.Driver")
         }
@@ -84,20 +85,20 @@ internal class DatabaseTest {
 
 
     @Serializable
-    data class S1(val i: Int,val s: String)
+    data class S1(val i: Int, val s: String)
+
     @Test
     fun convertBoss() {
         val db = testDb()
-                val s1 = S1(42, "foobar")
+        val s1 = S1(42, "foobar")
         val x = BossEncoder.encode(s1)
         println(x.toDump())
         db.inContext {
-            transaction {
-                val s2: S1? = queryOne("select ?", s1)
-                assertEquals(s1, s2)
-            }
+            val s2: S1? = queryOne("select ?", s1)
+            assertEquals(s1, s2)
+            println(queryOne<ByteArray>("select ?::bytea", s1)?.toDump())
+            assertContentEquals(x, queryOne<ByteArray>("select ?::bytea", s1))
         }
-
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -141,6 +142,9 @@ internal class DatabaseTest {
         val id: Long, val name: String, val gender: String,
         val birthDate: LocalDate?, val createdAt: ZonedDateTime,
     )
+    data class Present(
+        val id: Long, val personId: Long, val name: String
+    )
 
     @Test
     fun enums() {
@@ -153,8 +157,10 @@ internal class DatabaseTest {
 
             it.sql("drop table if exists foobars")
             it.sql("create table foobars(foo int,bar varchar)")
-            val r = it.updateQueryRow<Foobar1>("insert into foobars(foo,bar) values(?,?) returning *",
-                Enum1.FOO, Enum1.BAR)
+            val r = it.updateQueryRow<Foobar1>(
+                "insert into foobars(foo,bar) values(?,?) returning *",
+                Enum1.FOO, Enum1.BAR
+            )
             println(":: $r")
             assertEquals(Enum1.FOO, r!!.foo)
             assertEquals(Enum1.BAR, r.bar)
@@ -169,8 +175,10 @@ internal class DatabaseTest {
         db.withContext {
             it.sql("drop table if exists foobars")
             it.sql("create table foobars(foo int,bar varchar)")
-            val r = it.updateQueryRow<Foobar1>("insert into foobars(foo,bar) values(?,?) returning *",
-                Outer.Enum1.FOO, Outer.Enum1.BAR)
+            val r = it.updateQueryRow<Foobar1>(
+                "insert into foobars(foo,bar) values(?,?) returning *",
+                Outer.Enum1.FOO, Outer.Enum1.BAR
+            )
             println(":: $r")
             assertEquals(Outer.Enum1.FOO, r!!.foo)
             assertEquals(Outer.Enum1.BAR, r.bar)
@@ -204,7 +212,7 @@ internal class DatabaseTest {
         testDb().inContext {
             executeAll(
                 """
-                drop table if exists persons;
+                drop table if exists persons cascade;
                 
                 create table persons(
                     id bigserial primary key,
@@ -232,7 +240,7 @@ internal class DatabaseTest {
         testDb().inContext {
             executeAll(
                 """
-                drop table if exists persons;
+                drop table if exists persons cascade;
                 
                 create table persons(
                     id bigserial primary key,
@@ -244,7 +252,21 @@ internal class DatabaseTest {
                     
                 insert into persons(name, gender) values('John Doe', 'M');    
                 insert into persons(name, gender) values('Jane Doe', 'F');   
-                insert into persons(name, gender, birth_date) values('Unix Geek', 'M', '06.05.1970'::date);   
+                insert into persons(name, gender, birth_date) values('Unix Geek', 'M', '06.05.1970'::date);
+                   
+                drop table if exists presents;
+                create table presents (
+                    id bigserial not null primary key,
+                    person_id bigint not null references persons(id) on delete cascade,
+                    name varchar not null
+                );
+                
+                insert into presents(person_id, name) values(1, 'toy car');
+                insert into presents(person_id, name) values(1, 'toy pistol');
+                insert into presents(person_id, name) values(2, 'teddy bear');
+                insert into presents(person_id, name) values(2, 'doll');
+                insert into presents(person_id, name) values(3, 'computer');
+                   
                 """.trimIndent()
             )
 
@@ -279,6 +301,22 @@ internal class DatabaseTest {
             assertEquals(2, xx.size)
             assertEquals(setOf("John Doe", "Jane Doe"), xx.map { it.name }.toSet())
 
+            var y = select<Present>()
+            assertEquals(setOf("toy car", "teddy bear", "computer", "doll", "toy pistol"), y.all.map { it.name }.toSet() )
+
+            y = select<Present>().addJoin("inner join persons on persons.id=presents.person_id")
+                .where("persons.gender = ?", "M")
+            assertEquals(setOf("toy car", "toy pistol", "computer"), y.all.map { it.name }.toSet() )
+            println(y.toString())
+
+            y = select<Present>().join<Person>()
+                .where("persons.gender = ?", "F")
+            assertEquals(setOf("teddy bear", "doll"), y.all.map { it.name }.toSet() )
+
+            val z = select<Person>().include<Present>()
+                .where("presents.name = ?", "doll")
+            println(z.toString())
+            assertEquals(setOf("Jane Doe"), z.all.map{it.name}.toSet())
         }
     }
 
@@ -365,36 +403,36 @@ internal class DatabaseTest {
     @Test
     fun freeSyncContextOnErrors() {
         val db = testDb()
-        fun stats(prefix: String = "") {
+//        fun stats(prefix: String = "") {
 //            println("$prefix A:${db.activeConnections} P:${db.pooledConnections} !${db.leakedConnections} of ${db.maxConnections}")
-        }
-        stats()
+//        }
+//        stats()
         db.withContext { println("$it") }
-        stats()
+//        stats()
         for (i in 1..5) {
             try {
                 db.withContext {
-                    stats("in")
+//                    stats("in")
                     throw IllegalStateException()
                 }
             } catch (x: java.lang.IllegalStateException) {
-                stats("out")
+//                stats("out")
             }
         }
-        stats("result")
+//        stats("result")
         assertEquals(db.activeConnections, db.pooledConnections)
     }
 
     @Test
     fun freeAsyncContextOnErrors() {
         val db = testDb()
-        fun stats(prefix: String = "") {
+//        fun stats(prefix: String = "") {
 //            println("$prefix A:${db.activeConnections} P:${db.pooledConnections} !${db.leakedConnections} of ${db.maxConnections}")
-        }
-        stats()
+//        }
+//        stats()
         runBlocking {
             db.asyncContext { println("$it") }
-            stats()
+//            stats()
             for (i in 1..5) {
                 try {
                     db.asyncContext {
@@ -403,8 +441,7 @@ internal class DatabaseTest {
                                 db.asyncContext {
                                     db.asyncContext {
                                         db.asyncContext {
-
-                                            stats("inAsync")
+//                                            stats("inAsync")
                                             throw IllegalStateException()
                                         }
                                     }
@@ -413,10 +450,10 @@ internal class DatabaseTest {
                         }
                     }
                 } catch (x: java.lang.IllegalStateException) {
-                    stats("out")
+//                    stats("out")
                 }
             }
-            stats("result2")
+//            stats("result2")
             assertEquals(db.activeConnections, db.pooledConnections)
         }
     }
@@ -424,14 +461,14 @@ internal class DatabaseTest {
     @Test
     fun freeAsyncContextOnCancel() {
         val db = testDb()
-        fun stats(prefix: String = "") {
+//        fun stats(prefix: String = "") {
 //            println("$prefix A:${db.activeConnections} P:${db.pooledConnections} !${db.leakedConnections} of ${db.maxConnections}")
-        }
-        stats()
+//        }
+//        stats()
         runBlocking {
-            for( i in 1..5) {
+            for (i0 in 1..5) {
                 db.asyncContext { println("$it") }
-                stats()
+//                stats()
                 val job = launch {
                     for (i in 1..5) {
                         db.asyncContext {
@@ -440,7 +477,7 @@ internal class DatabaseTest {
                                     db.asyncContext {
                                         db.asyncContext {
                                             db.asyncContext {
-                                                stats("inAsync")
+//                                                stats("inAsync")
                                                 delay(500)
                                             }
                                         }
@@ -453,7 +490,7 @@ internal class DatabaseTest {
                 delay(199)
                 job.cancel()
                 job.join()
-                stats("result2")
+//                stats("result2")
                 assertEquals(db.activeConnections, db.pooledConnections)
             }
         }

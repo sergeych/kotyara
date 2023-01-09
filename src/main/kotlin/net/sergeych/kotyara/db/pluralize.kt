@@ -99,7 +99,10 @@ fun String.pluralize(): String = EnglishPluralizer.transform(this)
 /**
  * Calculate pluralized snake case form of the "class name", e.g. RecentOrder -> recent_orders which is usually
  * used as table names in RDBMS where table names are almost always case-insensitive that requires using
- * underscore to effectively separate name parts.
+ * underscore to effectively separate name parts. For example:
+ *  ~~~
+ * "RecentOrder".toTableName() == "recent_orders"
+ *  ~~~
  */
 fun String.toTableName(): String {
     val s = this.camelToSnakeCase()
@@ -108,4 +111,22 @@ fun String.toTableName(): String {
     var begin = parts.dropLast(1).joinToString("_")
     if (begin.isNotEmpty()) begin += "_"
     return "$begin${end.pluralize()}"
+}
+/**
+ * Calculate snake case form of the "class name", e.g. RecentOrder -> recent_order which is usually
+ * used as table names in RDBMS where table names are almost always case-insensitive that requires using
+ * underscore to effectively separate name parts.
+ *
+ * It differs from [toTableName] by not pluralizing the result, e.g.
+ * ~~~
+ *  "RecentOrder".toFieldName() == "recent_order"
+ * ~~~
+ */
+fun String.toFieldName(): String {
+    val s = this.camelToSnakeCase()
+    val parts = s.split('_')
+    val end = parts.last()
+    var begin = parts.dropLast(1).joinToString("_")
+    if (begin.isNotEmpty()) begin += "_"
+    return "$begin$end"
 }

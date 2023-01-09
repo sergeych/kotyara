@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.2.7-rc1"
+version = "1.2.7-rc3"
 
 repositories {
     mavenCentral()
@@ -22,7 +22,7 @@ dependencies {
     implementation("net.sergeych:mp_stools:1.3.2-SNAPSHOT")
     implementation("net.sergeych:boss-serialization-mp:0.2.4-SNAPSHOT")
     testImplementation(kotlin("test"))
-    testImplementation("org.postgresql:postgresql:42.5.0")
+    testImplementation("org.postgresql:postgresql:42.5.1")
 }
 
 java {
