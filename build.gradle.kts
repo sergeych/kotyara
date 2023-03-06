@@ -2,14 +2,14 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.7.10"
-    kotlin("plugin.serialization") version "1.7.10"
+    kotlin("jvm") version "1.7.21"
+    kotlin("plugin.serialization") version "1.7.21"
     id("java-library")
     `maven-publish`
 }
 
 group = "net.sergeych"
-version = "1.2.7-rc3"
+version = "1.2.7-rc6"
 
 repositories {
     mavenCentral()
@@ -19,7 +19,7 @@ repositories {
 dependencies {
     implementation(kotlin("reflect"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("net.sergeych:mp_stools:1.3.2-SNAPSHOT")
+    implementation("net.sergeych:mp_stools:[1.3.3,)")
     implementation("net.sergeych:boss-serialization-mp:0.2.4-SNAPSHOT")
     testImplementation(kotlin("test"))
     testImplementation("org.postgresql:postgresql:42.5.1")
@@ -77,11 +77,18 @@ publishing {
 
     repositories {
         maven {
+            val mavenUser: String by project
+            val mavenPassword: String by project
             url = uri("https://maven.universablockchain.com/")
             credentials {
-                username = System.getenv("maven_user")
-                password = System.getenv("maven_password")
+                username = mavenUser
+                password = mavenPassword
             }
+//
+//            credentials {
+//                username = System.getenv("maven_user")
+//                password = System.getenv("maven_password")
+//            }
         }
     }
 

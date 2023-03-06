@@ -29,6 +29,12 @@ class Database(
     private val converter: DbTypeConverter? = null,
 ) : TaggedLogger("DBSE") {
 
+    data class Stats(
+        val maxConnections: Int,
+        val pooledConnections: Int,
+        val leakedConenctions: Int,
+    )
+
     constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30, converter: DbTypeConverter? = null) :
             this(
                 { DriverManager.getConnection(writeUrl) },
@@ -107,22 +113,15 @@ class Database(
         try {
             ct.beforeRelease()
             inMutex { pool.add(ct) }
-        } catch (e: Exception) {
-            if (e is InterruptedException)
-                throw e
-            exception { "in releaseContext, this could leak connection $ct" to e }
+        } catch (t: Throwable) {
+            exception { "in releaseContext, this could leak connection $ct" to t }
             inMutex {
                 activeConnections--
                 leakedConnections++
+                maxConnections++
             }
-            info { "reset connections data: $activeConnections / $maxConnections / $leakedConnections" }
-            try {
-                ct.close()
-                info { "leaked connection has been closed, it will cause error in its user(s)" }
-            } catch (e: Exception) {
-                if (e is InterruptedException) throw e
-                error("failed to close leaked connection $ct")
-            }
+            info { "trying to close leaked connnectoin $ct" }
+            kotlin.runCatching { ct.close() }
         }
     }
 
@@ -231,6 +230,12 @@ class Database(
     private val keeperLock = UnitNotifier()
     private val closeAllEvent = UnitNotifier()
 
+    fun stats() = Stats(maxConnections, pooledConnections, leakedConnections)
+
+    fun logStats() {
+        info { "Stats: ${stats()}" }
+    }
+
     init {
         CoroutineScope(Dispatchers.Unconfined).launch {
             debug { "starting keeper coroutine in scope $this" }
@@ -245,7 +250,7 @@ class Database(
                                 try {
                                     destroyContext(ct); counter++
                                 } catch (x: Throwable) {
-                                    exception {  "Exception while destroying context by keeper" to x }
+                                    exception { "Exception while destroying context by keeper" to x }
                                 }
                             }
                     }
@@ -256,7 +261,7 @@ class Database(
                 }
             } catch (x: Throwable) {
                 if (x !is InterruptedException)
-                    exception {  "keeper thread $this aborted" to x }
+                    exception { "keeper thread $this aborted" to x }
             } finally {
                 debug { "keeper thread for $this is finished" }
             }

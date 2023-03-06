@@ -3,6 +3,7 @@ package net.sergeych.kotyara
 import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
 import net.sergeych.boss_serialization_mp.BossEncoder
+import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.mp_logger.Log
@@ -22,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KClass
 import kotlin.test.assertContentEquals
 import kotlin.test.assertIs
+import kotlin.test.fail
 
 enum class Enum1 {
     FOO, BAR;
@@ -135,6 +137,42 @@ internal class DatabaseTest {
         println(x)
     }
 
+    @Test
+    fun testFreeContext() {
+        val db = testDb()
+        val s0 = db.stats()
+        println(s0)
+        db.logStats()
+        var ok = false
+        var r: DbContext? = null
+        try {
+            runBlocking {
+                db.asyncContext { dbc ->
+                    r = dbc
+                    println("got async context")
+                    delay(10)
+                    dbc.query<Int>("select x = ?", throw Throwable("the test") )
+//                    throw Throwable("the test")
+                }
+            }
+        }
+        catch(x: Throwable) {
+            if( x.message != "the test") fail("wrong exception: $x")
+            ok = true
+        }
+        if( !ok ) fail("exception was not thrown")
+        println(db.stats())
+        val sa = db.stats()
+        assertEquals(0, db.leakedConnections)
+//        val x: Int = db.withContext { dbc ->
+//            dbc.sql("drop table if exists foobars")
+//            dbc.sql("create table if not exists foobars(id bigserial not null primary key, text varchar)")
+//            dbc.queryOne("select count(*) from foobars where text=? or text = ?", "12", "11")!!
+//        }
+//        println(x)
+    }
+
+
     data class Simple(val foo: String, val bar: Int, val createdAt: ZonedDateTime)
     data class SimpleSnake(val foo: String, val bar: Int, val created_at: ZonedDateTime)
 
@@ -142,8 +180,9 @@ internal class DatabaseTest {
         val id: Long, val name: String, val gender: String,
         val birthDate: LocalDate?, val createdAt: ZonedDateTime,
     )
+
     data class Present(
-        val id: Long, val personId: Long, val name: String
+        val id: Long, val personId: Long, val name: String,
     )
 
     @Test
@@ -302,21 +341,24 @@ internal class DatabaseTest {
             assertEquals(setOf("John Doe", "Jane Doe"), xx.map { it.name }.toSet())
 
             var y = select<Present>()
-            assertEquals(setOf("toy car", "teddy bear", "computer", "doll", "toy pistol"), y.all.map { it.name }.toSet() )
+            assertEquals(
+                setOf("toy car", "teddy bear", "computer", "doll", "toy pistol"),
+                y.all.map { it.name }.toSet()
+            )
 
             y = select<Present>().addJoin("inner join persons on persons.id=presents.person_id")
                 .where("persons.gender = ?", "M")
-            assertEquals(setOf("toy car", "toy pistol", "computer"), y.all.map { it.name }.toSet() )
+            assertEquals(setOf("toy car", "toy pistol", "computer"), y.all.map { it.name }.toSet())
             println(y.toString())
 
             y = select<Present>().join<Person>()
                 .where("persons.gender = ?", "F")
-            assertEquals(setOf("teddy bear", "doll"), y.all.map { it.name }.toSet() )
+            assertEquals(setOf("teddy bear", "doll"), y.all.map { it.name }.toSet())
 
             val z = select<Person>().include<Present>()
                 .where("presents.name = ?", "doll")
             println(z.toString())
-            assertEquals(setOf("Jane Doe"), z.all.map{it.name}.toSet())
+            assertEquals(setOf("Jane Doe"), z.all.map { it.name }.toSet())
         }
     }
 

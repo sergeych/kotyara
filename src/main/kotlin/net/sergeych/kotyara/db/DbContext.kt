@@ -259,13 +259,13 @@ class DbContext(
             // commit is done by restoring autocommit
 //            writeConnection.commit()
             return result
-        } catch (x: Exception) {
+        } catch (x: Throwable) {
             debug {"exception in savepoint ${sp.savepointId} will cause rollback: $x" }
             writeConnection.rollback(sp)
             throw x
         } finally {
             val level = savepointLevel.decrementAndGet()
-            debug {"cleaning savepoint ${sp.savepointId} ot level ${level} / $was" }
+            debug {"clearing savepoint ${sp.savepointId} ot level ${level} / $was" }
             writeConnection.autoCommit = was
         }
     }
