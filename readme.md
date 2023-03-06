@@ -6,7 +6,7 @@ This library is in production stage (postgres). Few interfaces could be changed.
 
 > Impornant note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
-# Current stable: 1.2.7-rc3 
+# Current stable: 1.2.7 
 
 ## 1.2.7 release 
 
@@ -26,8 +26,6 @@ This is a 1.2 branch, main points:
 - Added `hasMany` and `hasOne` tools to work with `Identifiable` records.
 
 Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle. It was influenced by simplicity of scala's ANROM library. Pity kotlin has no language features to mimic it at a larger extent.
-
-> Stable version: __1.1.0__ please use this or later
 
 Especially if you get strange error like `java.lang.NoSuchMethodError: 'java.util.List java.util.stream.Stream.toList()`
 
