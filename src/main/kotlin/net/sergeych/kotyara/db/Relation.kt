@@ -6,7 +6,6 @@ import net.sergeych.kotyara.DbException
 import net.sergeych.kotyara.asMany
 import net.sergeych.kotyara.asOne
 import net.sergeych.mp_logger.debug
-import net.sergeych.mp_logger.warning
 import net.sergeych.tools.TaggedLogger
 import java.sql.ResultSet
 import kotlin.reflect.KClass
@@ -29,7 +28,8 @@ class Relation<T : Any>(
     init {
         when {
             overrideFieldName == null && overrideTableName != null -> {
-                warning { "table name is overridden table name but field name id not, could cause problem with include()" }
+                //
+                //warning { "table name is overridden table name but field name id not, could cause problem with include()" }
                 tableName = overrideTableName
                 fieldName = tableName
             }
