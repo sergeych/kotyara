@@ -3,7 +3,6 @@ package net.sergeych.kotyara
 import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
 import net.sergeych.boss_serialization_mp.BossEncoder
-import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.mp_logger.Log
@@ -144,14 +143,12 @@ internal class DatabaseTest {
         println(s0)
         db.logStats()
         var ok = false
-        var r: DbContext? = null
         try {
             runBlocking {
                 db.asyncContext { dbc ->
-                    r = dbc
                     println("got async context")
                     delay(10)
-                    dbc.query<Int>("select x = ?", throw Throwable("the test") )
+                    throw Throwable("the test")
 //                    throw Throwable("the test")
                 }
             }
@@ -162,7 +159,7 @@ internal class DatabaseTest {
         }
         if( !ok ) fail("exception was not thrown")
         println(db.stats())
-        val sa = db.stats()
+//        val sa = db.stats()
         assertEquals(0, db.leakedConnections)
 //        val x: Int = db.withContext { dbc ->
 //            dbc.sql("drop table if exists foobars")
@@ -359,6 +356,55 @@ internal class DatabaseTest {
                 .where("presents.name = ?", "doll")
             println(z.toString())
             assertEquals(setOf("Jane Doe"), z.all.map { it.name }.toSet())
+        }
+    }
+    @Test
+    fun deleteAll() {
+        Log.connectConsole(Log.Level.DEBUG)
+
+        testDb().inContext {
+            executeAll(
+                """
+                drop table if exists persons cascade;
+                
+                create table persons(
+                    id bigserial primary key,
+                    name varchar not null,
+                    gender varchar(1) not null,
+                    birth_date date,
+                    created_at timestamp not null default now()
+                    );
+                    
+                insert into persons(name, gender) values('John Doe', 'M');    
+                insert into persons(name, gender) values('Jane Doe', 'F');   
+                insert into persons(name, gender, birth_date) values('Unix Geek', 'M', '06.05.1970'::date);
+                   
+                drop table if exists presents;
+                create table presents (
+                    id bigserial not null primary key,
+                    person_id bigint not null references persons(id) on delete cascade,
+                    name varchar not null
+                );
+                
+                insert into presents(person_id, name) values(1, 'toy car');
+                insert into presents(person_id, name) values(1, 'toy pistol');
+                insert into presents(person_id, name) values(2, 'teddy bear');
+                insert into presents(person_id, name) values(2, 'doll');
+                insert into presents(person_id, name) values(3, 'computer');
+                   
+                """.trimIndent()
+            )
+
+
+            var all = select<Person>().all
+            assertEquals(3, all.size)
+
+            val cnt = select<Person>().where("gender != ?", 'F').deleteAll()
+            assertEquals(2, cnt)
+            all = select<Person>().all
+            assertEquals(1, all.size)
+            val last = all.last()
+            assertEquals("Jane Doe", last.name)
         }
     }
 

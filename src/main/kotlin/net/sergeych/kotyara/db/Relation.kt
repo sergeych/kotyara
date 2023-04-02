@@ -54,6 +54,8 @@ class Relation<T : Any>(
     }
 
     private val selectClause = "SELECT * FROM $tableName"
+    private val deleteClause = "DELETE FROM $tableName"
+
     private val joins = mutableListOf<String>()
 
     private val whereClauses = mutableListOf<String>()
@@ -186,15 +188,15 @@ class Relation<T : Any>(
         return this
     }
 
-    fun buildSql(overrideLimit: Int? = null): String {
-        val sql = StringBuilder(selectClause)
+    fun buildSql(overrideLimit: Int? = null,doDelete: Boolean = false): String {
+        val sql = StringBuilder(if( doDelete ) deleteClause else selectClause)
         for (j in joins) sql.append("\n$j")
         // todo: possible joins
         if (whereClauses.isNotEmpty()) {
             sql.append("\nwhere")
             sql.append(whereClauses.joinToString(" and") { " ($it)" })
         }
-        if (order.isNotEmpty()) {
+        if (order.isNotEmpty() && !doDelete) {
             sql.append("\norder by ")
             sql.append(order.joinToString(","))
         }
@@ -206,7 +208,7 @@ class Relation<T : Any>(
 
         _offset?.let { sql.append(" offset $it") }
 
-        if (useForUpdate) sql.append(" for update")
+        if (useForUpdate && !doDelete) sql.append(" for update")
 
         debug { "Build sql: $this" }
         return sql.toString()
@@ -219,6 +221,9 @@ class Relation<T : Any>(
     val all: List<T>
         get() =
             withResultSet { it.asMany(klass, context.converter) }
+
+    fun deleteAll(): Int =
+        context.withUpdateCount(buildSql(doDelete = true), *statementParams.toTypedArray())
 
     val first: T?
         get() =

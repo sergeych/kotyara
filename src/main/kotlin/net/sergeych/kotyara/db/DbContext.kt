@@ -128,6 +128,7 @@ class DbContext(
                 it.resultSet
             }
             try {
+                println("---- $rs")
                 block(rs)
             } catch (x: Exception) {
                 exception {  "withResultSet crashed" to x }
@@ -135,6 +136,13 @@ class DbContext(
             } finally {
                 rs.close()
             }
+        }
+    }
+
+    fun withUpdateCount(sql: String, vararg params: Any?): Int {
+        return withStatement2(false, sql, *params) {
+            it.execute()
+            it.updateCount
         }
     }
 
