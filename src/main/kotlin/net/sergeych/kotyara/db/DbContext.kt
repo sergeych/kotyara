@@ -1,4 +1,4 @@
-@file:Suppress("unused")
+@file:Suppress("unused", "SqlSourceToSinkFlow")
 
 package net.sergeych.kotyara.db
 
@@ -128,7 +128,6 @@ class DbContext(
                 it.resultSet
             }
             try {
-                println("---- $rs")
                 block(rs)
             } catch (x: Exception) {
                 exception {  "withResultSet crashed" to x }

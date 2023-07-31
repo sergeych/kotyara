@@ -1,5 +1,7 @@
 package net.sergeych.kotyara
 
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -17,7 +19,6 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.createType
 import kotlin.reflect.jvm.jvmErasure
 
-@Suppress("IMPLICIT_CAST_TO_ANY")
 fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
     val value = when (cls) {
         String::class -> getString(colName)
@@ -37,6 +38,11 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         List::class -> (getArray(colName).array as Array<*>).toList()
         Array::class -> getArray(colName).array as Array<*>
         Instant::class -> getTimestamp(colName)?.let { t -> Instant.ofEpochMilli(t.time) }
+        kotlinx.datetime.Instant::class -> kotlinx.datetime.Instant.fromEpochMilliseconds(getTimestamp(colName).time)
+        kotlinx.datetime.LocalDateTime::class -> kotlinx.datetime.Instant.fromEpochMilliseconds(getTimestamp(colName).time)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+        kotlinx.datetime.LocalDate::class -> kotlinx.datetime.Instant.fromEpochMilliseconds(getTimestamp(colName).time)
+            .toLocalDateTime(TimeZone.currentSystemDefault()).date
         else -> {
             if (cls.java.isEnum) {
                 val x = getObject(colName)

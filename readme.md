@@ -6,7 +6,11 @@ This library is in production stage (postgres). Few interfaces could be changed.
 
 > Impornant note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
-# Current stable: 1.2.7 
+# Current stable: 1.2.9 
+
+## 1.2.10
+
+Support for kotlinx.datetime types: `Instant`, `LocalDateTime` and `LocalDate`
 
 ## 1.2.7 release 
 

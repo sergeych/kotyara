@@ -1,6 +1,7 @@
 package net.sergeych.kotyara
 
 import kotlinx.coroutines.*
+import kotlinx.datetime.*
 import kotlinx.serialization.Serializable
 import net.sergeych.boss_serialization_mp.BossEncoder
 import net.sergeych.kotyara.db.DbTypeConverter
@@ -22,7 +23,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KClass
 import kotlin.test.assertContentEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.test.fail
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class Enum1 {
     FOO, BAR;
@@ -602,6 +605,38 @@ internal class DatabaseTest {
 //            fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf("123"))
 //            fbs = dbc.query<Foobar>("select * from foobars where foo = any (?)", listOf<Double>())
 //            assertEquals(0, fbs.size)
+        }
+    }
+
+    @Test
+    fun testKotlinxTime() {
+        testDb().withContext { dbc ->
+            val t: kotlinx.datetime.Instant = Clock.System.now()
+            val t1: kotlinx.datetime.Instant? = dbc.queryOne<kotlinx.datetime.Instant>("select now()")
+            println(t1!!-t)
+            assertTrue { t1!!-t < 10.milliseconds }
+            val t2: kotlinx.datetime.Instant? = dbc.queryOne<kotlinx.datetime.Instant>("select ?", t1)
+            println(t2!!-t1)
+            assertTrue { t2!!-t1!! < 1.milliseconds }
+
+            val stz = TimeZone.currentSystemDefault()
+            val dt: LocalDateTime = Clock.System.now().toLocalDateTime(stz)
+            val dt1: LocalDateTime = dbc.queryOne<LocalDateTime>("select now()")!!
+            val dt2: LocalDateTime = dbc.queryOne<LocalDateTime>("select ?", dt1)!!
+            println("$dt | $dt1 || ${dt1!!.toInstant(stz) - dt.toInstant(stz)}")
+            assertTrue { (dt1!!.toInstant(stz) - dt.toInstant(stz)).absoluteValue < 10.milliseconds }
+            assertTrue { (dt2!!.toInstant(stz) - dt1.toInstant(stz)).absoluteValue < 1.milliseconds }
+
+            val d: kotlinx.datetime.LocalDate = dt.date
+            val d1: kotlinx.datetime.LocalDate = dbc.queryOne("select now()")!!
+            val d2: kotlinx.datetime.LocalDate = dbc.queryOne("select ?", d)!!
+            println(d1)
+            println("---------- ${d1-d}")
+            val x: DatePeriod = d1-d
+            assertTrue { (d1.atStartOfDayIn(stz)-d.atStartOfDayIn(stz)).absoluteValue < 12.milliseconds }
+            assertTrue { (d2.atStartOfDayIn(stz)-d1.atStartOfDayIn(stz)).absoluteValue < 12.milliseconds }
+//            assertTrue {  - dt.toInstant(stz)).absoluteValue < 10.milliseconds }
+
         }
     }
 

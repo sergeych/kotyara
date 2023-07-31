@@ -2,6 +2,10 @@
 
 package net.sergeych.kotyara
 
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toJavaInstant
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -16,6 +20,7 @@ import kotlin.reflect.full.createType
 
 @OptIn(InternalSerializationApi::class)
 fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
+    val timeZone = TimeZone.currentSystemDefault()
     when (x) {
         is String -> {
             if (parameterMetaData?.getParameterTypeName(n)?.startsWith("json") == true)
@@ -42,6 +47,9 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is LocalDateTime -> setTimestamp(n, Timestamp.valueOf(x))
         is LocalDate -> setTimestamp(n, Timestamp.valueOf(LocalDateTime.of(x, LocalTime.MIN)))
         is ZonedDateTime -> setTimestamp(n, Timestamp.valueOf(x.toLocalDateTime()))
+        is kotlinx.datetime.Instant -> setTimestamp(n, Timestamp.from(x.toJavaInstant()))
+        is kotlinx.datetime.LocalDateTime -> setTimestamp(n, Timestamp.from(x.toInstant(timeZone).toJavaInstant()))
+        is kotlinx.datetime.LocalDate -> setTimestamp(n, Timestamp.from(x.atStartOfDayIn(timeZone).toJavaInstant()))
         is Set<*> -> setValue(n, x.toList(), sql)
         is List<*> -> {
             val array =

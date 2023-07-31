@@ -9,10 +9,11 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.2.9-SNAPSHOT"
+version = "1.2.10-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven("https://maven.universablockchain.com/")
 }
 
@@ -20,7 +21,8 @@ dependencies {
     implementation(kotlin("reflect"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation("net.sergeych:mp_stools:[1.3.3,)")
-    implementation("net.sergeych:boss-serialization-mp:0.2.4-SNAPSHOT")
+    implementation("net.sergeych:boss-serialization-mp:0.2.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
     testImplementation(kotlin("test"))
     testImplementation("org.postgresql:postgresql:42.5.1")
 }
