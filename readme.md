@@ -10,7 +10,34 @@ This library is in production stage (postgres). Few interfaces could be changed.
 
 ## 1.3.1-SNAPSHOT
 
-- Added support for automatic JSON de/serialization of fields using `DbJson` annotation. Just mark your serializable class with it and use `varchar`, `json`, `jsonb` or like columnt in your table. 
+- Added support for automatic JSON de/serialization of fields using `DbJson` annotation. Just mark your serializable class with it and use `varchar`, `json`, `jsonb` or like columnt in your table. Here is the sample:
+```kotlin
+@Serializable
+@DbJson // important!
+data class JSFoo(val foo: String, val bar: Int)
+
+val f1 = JSFoo("foobar", 42)
+
+testDb().withContext { dbc ->
+    assertEquals("""{"foo":"foobar","bar":42}""", 
+        dbc.queryOne<String>("select ?", f1))
+    val d = dbc.queryOne<JSFoo>("select ?", f1)
+    assertEquals(f1, d)
+
+    dbc.execute(
+        """
+                create table if not exists dbjson_test(
+                    id serial not null primary key,
+                    encoded json not null
+                );
+            """.trimIndent()
+    )
+    val id = dbc.updateQueryOne<Int>("insert into dbjson_test(encoded) values(?) returning id", f1)!!
+    val d2 = dbc.queryOne<JSFoo>("select encoded from dbjson_test where id=?", id)
+    assertEquals(f1, d2)
+}
+
+```
 
 Serialization to JSON with JSON column type let us use encoded data fields in database queries (where DB supports json).
 
