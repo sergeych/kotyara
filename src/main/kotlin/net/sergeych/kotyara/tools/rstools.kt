@@ -5,7 +5,9 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.serializer
 import net.sergeych.boss_serialization.BossDecoder
+import net.sergeych.kotyara.db.DbJson
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.tools.camelToSnakeCase
 import java.math.BigDecimal
@@ -54,7 +56,10 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
                 }
             } else {
                 try {
-                    BossDecoder.decodeFrom<Any?>(cls.createType(),getBytes(colName))
+                    if( cls.annotations.any { it is DbJson })
+                        Json.decodeFromString<Any?>(serializer(cls.createType()),getString(colName))
+                    else
+                        BossDecoder.decodeFrom<Any?>(cls.createType(),getBytes(colName))
                 } catch(x: Exception) {
                     throw DbException("unknown param type $cls for column '$colName'", x)
                 }

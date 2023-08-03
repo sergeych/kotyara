@@ -4,6 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.datetime.*
 import kotlinx.serialization.Serializable
 import net.sergeych.boss_serialization_mp.BossEncoder
+import net.sergeych.kotyara.db.DbJson
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.mp_logger.Log
@@ -637,6 +638,32 @@ internal class DatabaseTest {
             assertTrue { (d2.atStartOfDayIn(stz)-d1.atStartOfDayIn(stz)).absoluteValue < 12.milliseconds }
 //            assertTrue {  - dt.toInstant(stz)).absoluteValue < 10.milliseconds }
 
+        }
+    }
+
+    @Test
+    fun testJsonSerializerAnnotation() {
+
+        @Serializable
+        @DbJson
+        data class JSFoo(val foo: String, val bar: Int)
+
+        val f1 = JSFoo("foobar", 42)
+        testDb().withContext { dbc ->
+            assertEquals("""{"foo":"foobar","bar":42}""",dbc.queryOne<String>("select ?", f1))
+            val d = dbc.queryOne<JSFoo>("select ?", f1)
+            assertEquals(f1, d)
+
+            dbc.execute("""
+                create table if not exists dbjson_test(
+                    id serial not null primary key,
+                    encoded json not null
+                );
+            """.trimIndent())
+            dbc.execute("delete from dbjson_test")
+            val id = dbc.updateQueryOne<Int>("insert into dbjson_test(encoded) values(?) returning id", f1)!!
+            val d2 = dbc.queryOne<JSFoo>("select encoded from dbjson_test where id=?", id)
+            assertEquals(f1, d2)
         }
     }
 

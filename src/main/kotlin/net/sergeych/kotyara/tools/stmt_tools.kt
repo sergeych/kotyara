@@ -10,7 +10,9 @@ import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.serializer
 import net.sergeych.boss_serialization_mp.BossEncoder
+import net.sergeych.kotyara.db.DbJson
 import java.math.BigDecimal
 import java.sql.PreparedStatement
 import java.sql.Timestamp
@@ -79,7 +81,12 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         else -> {
             // let's try to encode with boss
             try {
-                setBytes(n, BossEncoder.encode(x::class.createType(), x))
+                if( x.javaClass.annotations.any { it is DbJson }) {
+                    println("Use JSON!")
+                    setObject(n, Json.encodeToString(serializer(x::class.createType()), x), OTHER)
+                }
+                else
+                    setBytes(n, BossEncoder.encode(x::class.createType(), x))
             }
             catch(x: Exception) {
                 throw IllegalArgumentException("unknown param[$n]:$x type: ${x::class.qualifiedName} from $sql", x)

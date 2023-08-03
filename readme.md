@@ -8,9 +8,17 @@ This library is in production stage (postgres). Few interfaces could be changed.
 
 # Current stable: 1.2.9 
 
+## 1.3.1-SNAPSHOT
+
+- Added support for automatic JSON de/serialization of fields using `DbJson` annotation. Just mark your serializable class with it and use `varchar`, `json`, `jsonb` or like columnt in your table. 
+
+Serialization to JSON with JSON column type let us use encoded data fields in database queries (where DB supports json).
+
+Note that unmarked classes will be serialized with BOSS as before and require `bytea` column.
+
 ## 1.2.10
 
-Support for kotlinx.datetime types: `Instant`, `LocalDateTime` and `LocalDate`
+- Support for kotlinx.datetime types: `Instant`, `LocalDateTime` and `LocalDate`
 
 ## 1.2.7 release 
 
