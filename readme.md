@@ -8,6 +8,33 @@ This library is in production stage (postgres). Few interfaces could be changed.
 
 # Current stable: 1.2.9 
 
+## 1.3.2-SNAPSHOT
+
+You can easily add you own converters now, or mark existing classes for JSON serializations. It is as simple as that:
+
+```kotlin
+// custom converter, part od Db
+inline fun <reified T : Any> asJson() {
+    register({
+        Json.decodeFromString<T>(getString(column))
+    }, {
+        setObject(column, Json.encodeToString(it),OTHER)
+    })
+}
+
+// registry is a part of te Database class, and it also 
+// allows marking existing classes for json:
+@Serializable
+data class JSFoo(val foo: String, val bar: Int)
+
+val database: Database = openDatabase()
+database.registry.asJson<JSFoo>()
+```
+
+Type registry is also available in `DbConnection` as `registry` or, for compatibility reasons, `converter`.
+
+Note that the registry is per-database, converter added for the connection will be immediately avaiable in all existing and future connections. Types registry is thread-safe.
+
 ## 1.3.1-SNAPSHOT
 
 - Added support for automatic JSON de/serialization of fields using `DbJson` annotation. Just mark your serializable class with it and use `varchar`, `json`, `jsonb` or like columnt in your table. Here is the sample:

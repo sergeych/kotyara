@@ -18,8 +18,14 @@ import kotlin.reflect.KClass
 class DbContext(
     private val _readConnection: Connection,
     private val writeConnection: Connection = _readConnection,
-    val converter: DbTypeConverter?
+    val converter: TypeRegistry
 ) : TaggedLogger("DBC") {
+
+    /**
+     * The same as [converter]: rovides type registry for converting to/from
+     * any objects. See [TypeRegistry.asJson] or [TypeRegistry.register].
+     */
+    val registry: TypeRegistry get() = converter
 
     private val readConnection: Connection
         get() = if (inTransaction) writeConnection else _readConnection
@@ -202,15 +208,15 @@ class DbContext(
     }
 
     private fun setValue(value: Any?,statement: PreparedStatement,column: Int,sql: String) {
-        if( value == null || converter == null || !converter.toDatabaseType(value, statement,column) )
+        if( value == null || !converter.toDatabaseType(value, statement,column) )
             statement.setValue(column, value, sql)
     }
 
     inline fun <reified T: Any>convertFromDb(rs: ResultSet,column: Int): T? =
-        converter?.fromDatabaseType(T::class,rs, column) ?: rs.getValue(column)
+        converter.fromDatabaseType(T::class,rs, column) ?: rs.getValue(column)
 
     fun <T: Any>convertFromDb(klass: KClass<T>,rs: ResultSet,column: Int): T? =
-        converter?.fromDatabaseType(klass,rs, column) ?: rs.getValue(klass,column)
+        converter.fromDatabaseType(klass,rs, column) ?: rs.getValue(klass,column)
 
     fun <T> withWriteStatement2(
         sql: String,

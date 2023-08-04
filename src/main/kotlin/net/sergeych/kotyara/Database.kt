@@ -4,6 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.db.DbTypeConverter
+import net.sergeych.kotyara.db.TypeRegistry
 import net.sergeych.kotyara.tools.UnitNotifier
 import net.sergeych.kotyara.tools.withReentrantLock
 import net.sergeych.mp_logger.debug
@@ -26,7 +27,7 @@ class Database(
     _readConnectionFactory: ConnectionFactory? = null,
 //    var maxIdleConnections: Int = 5,
     private var _maxConnections: Int = 30,
-    private val converter: DbTypeConverter? = null,
+    converter: DbTypeConverter? = null,
 ) : TaggedLogger("DBSE") {
 
     data class Stats(
@@ -34,6 +35,8 @@ class Database(
         val pooledConnections: Int,
         val leakedConenctions: Int,
     )
+
+    val registry = TypeRegistry(converter)
 
     constructor(writeUrl: String, readUrl: String, maxConnections: Int = 30, converter: DbTypeConverter? = null) :
             this(
@@ -94,8 +97,8 @@ class Database(
             if (activeConnections < maxConnections * 2) {
                 val dbc = if (readConnectionFactory == writeConnectionFactory) {
                     val connection = readConnectionFactory()
-                    DbContext(connection, connection, converter)
-                } else DbContext(readConnectionFactory(), writeConnectionFactory(), converter)
+                    DbContext(connection, connection, registry)
+                } else DbContext(readConnectionFactory(), writeConnectionFactory(), registry)
                 activeConnections++
                 (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize++
                 info { "Connection added: $activeConnections / $maxConnections / $leakedConnections" }

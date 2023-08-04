@@ -156,12 +156,11 @@ internal class DatabaseTest {
 //                    throw Throwable("the test")
                 }
             }
-        }
-        catch(x: Throwable) {
-            if( x.message != "the test") fail("wrong exception: $x")
+        } catch (x: Throwable) {
+            if (x.message != "the test") fail("wrong exception: $x")
             ok = true
         }
-        if( !ok ) fail("exception was not thrown")
+        if (!ok) fail("exception was not thrown")
         println(db.stats())
 //        val sa = db.stats()
         assertEquals(0, db.leakedConnections)
@@ -362,6 +361,7 @@ internal class DatabaseTest {
             assertEquals(setOf("Jane Doe"), z.all.map { it.name }.toSet())
         }
     }
+
     @Test
     fun deleteAll() {
         Log.connectConsole(Log.Level.DEBUG)
@@ -614,11 +614,11 @@ internal class DatabaseTest {
         testDb().withContext { dbc ->
             val t: kotlinx.datetime.Instant = Clock.System.now()
             val t1: kotlinx.datetime.Instant? = dbc.queryOne<kotlinx.datetime.Instant>("select now()")
-            println(t1!!-t)
-            assertTrue { t1!!-t < 10.milliseconds }
+            println(t1!! - t)
+            assertTrue { t1!! - t < 10.milliseconds }
             val t2: kotlinx.datetime.Instant? = dbc.queryOne<kotlinx.datetime.Instant>("select ?", t1)
-            println(t2!!-t1)
-            assertTrue { t2!!-t1!! < 1.milliseconds }
+            println(t2!! - t1)
+            assertTrue { t2!! - t1!! < 1.milliseconds }
 
             val stz = TimeZone.currentSystemDefault()
             val dt: LocalDateTime = Clock.System.now().toLocalDateTime(stz)
@@ -632,10 +632,10 @@ internal class DatabaseTest {
             val d1: kotlinx.datetime.LocalDate = dbc.queryOne("select now()")!!
             val d2: kotlinx.datetime.LocalDate = dbc.queryOne("select ?", d)!!
             println(d1)
-            println("---------- ${d1-d}")
-            val x: DatePeriod = d1-d
-            assertTrue { (d1.atStartOfDayIn(stz)-d.atStartOfDayIn(stz)).absoluteValue < 12.milliseconds }
-            assertTrue { (d2.atStartOfDayIn(stz)-d1.atStartOfDayIn(stz)).absoluteValue < 12.milliseconds }
+            println("---------- ${d1 - d}")
+            val x: DatePeriod = d1 - d
+            assertTrue { (d1.atStartOfDayIn(stz) - d.atStartOfDayIn(stz)).absoluteValue < 12.milliseconds }
+            assertTrue { (d2.atStartOfDayIn(stz) - d1.atStartOfDayIn(stz)).absoluteValue < 12.milliseconds }
 //            assertTrue {  - dt.toInstant(stz)).absoluteValue < 10.milliseconds }
 
         }
@@ -650,16 +650,18 @@ internal class DatabaseTest {
 
         val f1 = JSFoo("foobar", 42)
         testDb().withContext { dbc ->
-            assertEquals("""{"foo":"foobar","bar":42}""",dbc.queryOne<String>("select ?", f1))
+            assertEquals("""{"foo":"foobar","bar":42}""", dbc.queryOne<String>("select ?", f1))
             val d = dbc.queryOne<JSFoo>("select ?", f1)
             assertEquals(f1, d)
 
-            dbc.execute("""
+            dbc.execute(
+                """
                 create table if not exists dbjson_test(
                     id serial not null primary key,
                     encoded json not null
                 );
-            """.trimIndent())
+            """.trimIndent()
+            )
             dbc.execute("delete from dbjson_test")
             val id = dbc.updateQueryOne<Int>("insert into dbjson_test(encoded) values(?) returning id", f1)!!
             val d2 = dbc.queryOne<JSFoo>("select encoded from dbjson_test where id=?", id)
@@ -667,6 +669,46 @@ internal class DatabaseTest {
         }
     }
 
+    @Test
+    fun customConverters() {
+
+        @Serializable
+        data class JSFoo(val foo: String, val bar: Int)
+
+        val f1 = JSFoo("foobar", 42)
+        testDb().apply { registry.asJson<JSFoo>() }
+            .withContext { dbc ->
+                assertEquals("""{"foo":"foobar","bar":42}""", dbc.queryOne<String>("select ?", f1))
+                val d = dbc.queryOne<JSFoo>("select ?", f1)
+                assertEquals(f1, d)
+
+                dbc.execute(
+                    """
+                create table if not exists dbjson_test(
+                    id serial not null primary key,
+                    encoded json not null
+                );
+            """.trimIndent()
+                )
+                dbc.execute("delete from dbjson_test")
+                val id = dbc.updateQueryOne<Int>("insert into dbjson_test(encoded) values(?) returning id", f1)!!
+                val d2 = dbc.queryOne<JSFoo>("select encoded from dbjson_test where id=?", id)
+                assertEquals(f1, d2)
+            }
+
+//        val db = testDb()
+//        db.
+//        db.withContext { dbc ->
+//            dbc.
+//        }
+    }
+
 }
+
+fun assertEmpty(collection: Collection<*>) {
+    if (collection.isNotEmpty())
+        fail("expected empty collection, but it has ${collection.size} elements")
+}
+
 
 
