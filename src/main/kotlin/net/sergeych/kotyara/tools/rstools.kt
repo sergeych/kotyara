@@ -32,6 +32,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         BigDecimal::class -> getBigDecimal(colName)
         com.ionspin.kotlin.bignum.decimal.BigDecimal::class ->
             com.ionspin.kotlin.bignum.decimal.BigDecimal.parseString(getBigDecimal(colName).toString())
+
         Float::class -> getFloat(colName)
         ByteArray::class -> getBytes(colName)
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()
@@ -42,11 +43,21 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         List::class -> (getArray(colName).array as Array<*>).toList()
         Array::class -> getArray(colName).array as Array<*>
         Instant::class -> getTimestamp(colName)?.let { t -> Instant.ofEpochMilli(t.time) }
-        kotlinx.datetime.Instant::class -> kotlinx.datetime.Instant.fromEpochMilliseconds(getTimestamp(colName).time)
-        kotlinx.datetime.LocalDateTime::class -> kotlinx.datetime.Instant.fromEpochMilliseconds(getTimestamp(colName).time)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
+        kotlinx.datetime.Instant::class -> getTimestamp(colName)?.let {
+            kotlinx.datetime.Instant.fromEpochMilliseconds(
+                it.time
+            )
+        }
+
+        kotlinx.datetime.LocalDateTime::class -> getTimestamp(colName)?.let {
+            kotlinx.datetime.Instant.fromEpochMilliseconds(
+                it.time
+            ).toLocalDateTime(TimeZone.currentSystemDefault())
+        }
+
         kotlinx.datetime.LocalDate::class -> kotlinx.datetime.Instant.fromEpochMilliseconds(getTimestamp(colName).time)
             .toLocalDateTime(TimeZone.currentSystemDefault()).date
+
         else -> {
             if (cls.java.isEnum) {
                 val x = getObject(colName)
@@ -58,11 +69,11 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
                 }
             } else {
                 try {
-                    if( cls.annotations.any { it is DbJson })
-                        Json.decodeFromString<Any?>(serializer(cls.createType()),getString(colName))
+                    if (cls.annotations.any { it is DbJson })
+                        Json.decodeFromString<Any?>(serializer(cls.createType()), getString(colName))
                     else
-                        BossDecoder.decodeFrom<Any?>(cls.createType(),getBytes(colName))
-                } catch(x: Exception) {
+                        BossDecoder.decodeFrom<Any?>(cls.createType(), getBytes(colName))
+                } catch (x: Exception) {
                     throw DbException("unknown param type $cls for column '$colName'", x)
                 }
             }
@@ -72,7 +83,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
     return if (wasNull()) null else (value as T)
 }
 
-fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T?  {
+fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T? {
     return getValue(cls, metaData.getColumnName(colIndex))
 }
 
@@ -93,8 +104,7 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>, converter: DbTypeConverter?): T?
     }
     try {
         return constructor.call(*args.toTypedArray())
-    }
-    catch(x: Exception) {
+    } catch (x: Exception) {
         throw IllegalArgumentException(
             "failed to create instance of ${klass.simpleName}(${args.joinToString(",") { "$it: ${it?.javaClass?.simpleName}" }}",
             x
@@ -102,7 +112,7 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>, converter: DbTypeConverter?): T?
     }
 }
 
-fun <T : Any> ResultSet.asMany(klass: KClass<T>,converter: DbTypeConverter?): List<T> {
+fun <T : Any> ResultSet.asMany(klass: KClass<T>, converter: DbTypeConverter?): List<T> {
     val result = arrayListOf<T>()
     @Suppress("ControlFlowWithEmptyBody")
     while (null != asOne(klass, converter)?.also { result.add(it) });
