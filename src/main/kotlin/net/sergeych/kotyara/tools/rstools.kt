@@ -30,6 +30,8 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
         Boolean::class -> getBoolean(colName)
         Double::class -> getDouble(colName)
         BigDecimal::class -> getBigDecimal(colName)
+        com.ionspin.kotlin.bignum.decimal.BigDecimal::class ->
+            com.ionspin.kotlin.bignum.decimal.BigDecimal.parseString(getBigDecimal(colName).toString())
         Float::class -> getFloat(colName)
         ByteArray::class -> getBytes(colName)
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()

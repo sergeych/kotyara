@@ -2,6 +2,7 @@
 
 package net.sergeych.kotyara
 
+import com.ionspin.kotlin.bignum.decimal.toJavaBigDecimal
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toInstant
@@ -42,6 +43,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is Float -> setFloat(n, x)
         is Double -> setDouble(n, x)
         is BigDecimal -> setBigDecimal(n, x)
+        is com.ionspin.kotlin.bignum.decimal.BigDecimal -> setBigDecimal(n, x.toJavaBigDecimal())
         is Boolean -> setBoolean(n, x)
         is ByteArray -> setBytes(n, x)
         is Char -> setString(n, "$x")
