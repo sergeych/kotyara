@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.3.3-SNAPSHOT"
+version = "1.3.3"
 
 repositories {
     mavenCentral()

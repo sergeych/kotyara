@@ -4,101 +4,11 @@ __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ 
 
 This library is in production stage (postgres). Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
 
-> Impornant note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
+Important note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
-# Current stable: 1.2.9 
-
-## 1.3.2-SNAPSHOT
-
-You can easily add you own converters now, or mark existing classes for JSON serializations. It is as simple as that:
-
-```kotlin
-// custom converter, part od Db
-inline fun <reified T : Any> asJson() {
-    register({
-        Json.decodeFromString<T>(getString(column))
-    }, {
-        setObject(column, Json.encodeToString(it),OTHER)
-    })
-}
-
-// registry is a part of te Database class, and it also 
-// allows marking existing classes for json:
-@Serializable
-data class JSFoo(val foo: String, val bar: Int)
-
-val database: Database = openDatabase()
-database.registry.asJson<JSFoo>()
-```
-
-Type registry is also available in `DbConnection` as `registry` or, for compatibility reasons, `converter`.
-
-Note that the registry is per-database, converter added for the connection will be immediately avaiable in all existing and future connections. Types registry is thread-safe.
-
-## 1.3.1-SNAPSHOT
-
-- Added support for automatic JSON de/serialization of fields using `DbJson` annotation. Just mark your serializable class with it and use `varchar`, `json`, `jsonb` or like columnt in your table. Here is the sample:
-```kotlin
-@Serializable
-@DbJson // important!
-data class JSFoo(val foo: String, val bar: Int)
-
-val f1 = JSFoo("foobar", 42)
-
-testDb().withContext { dbc ->
-    assertEquals("""{"foo":"foobar","bar":42}""", 
-        dbc.queryOne<String>("select ?", f1))
-    val d = dbc.queryOne<JSFoo>("select ?", f1)
-    assertEquals(f1, d)
-
-    dbc.execute(
-        """
-                create table if not exists dbjson_test(
-                    id serial not null primary key,
-                    encoded json not null
-                );
-            """.trimIndent()
-    )
-    val id = dbc.updateQueryOne<Int>("insert into dbjson_test(encoded) values(?) returning id", f1)!!
-    val d2 = dbc.queryOne<JSFoo>("select encoded from dbjson_test where id=?", id)
-    assertEquals(f1, d2)
-}
-
-```
-
-Serialization to JSON with JSON column type let us use encoded data fields in database queries (where DB supports json).
-
-Note that unmarked classes will be serialized with BOSS as before and require `bytea` column.
-
-## 1.2.10
-
-- Support for kotlinx.datetime types: `Instant`, `LocalDateTime` and `LocalDate`
-
-## 1.2.7 release 
-
-This release is supposed to be productino stable with many new features. It is compiled with __java 1.8__ to get best bytecode compatibility and contain amny syntax sugar additions and better types compatibility. Some of the changelog:
-
-- `Relation.join` and `.addJoin` to simple and convenient add joined tables to `dbc.select()`
-- `Relation.include` as syntax sugar for join for one-to-namy case
-- Relation now has tracing `toString()` implementation that contain generated SQL and list of parameters
-
-## 1.2 experimental:
-
-This is a 1.2 branch, main points:
-
-- support of most scalar adn popular java date/time types
-- Boss encoding if unknown parameter types (bytea is expected)
-- Added `Identifiable<T>` record type with untility functions like `byId(), reload() and destroy()`
-- Added `hasMany` and `hasOne` tools to work with `Identifiable` records.
-
-Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle. It was influenced by simplicity of scala's ANROM library. Pity kotlin has no language features to mimic it at a larger extent.
-
-Especially if you get strange error like `java.lang.NoSuchMethodError: 'java.util.List java.util.stream.Stream.toList()`
-
+> Current stable: 1.3.3
 
 ## Installation
-
-Add is a dependency, for example, to the build.gradle.kts is should be like:
 
 ~~~
 
@@ -110,9 +20,43 @@ dependencies {
 }
 ~~~
 
-## In depth
+## Usage
 
-The main principle is to let the same agility that SQL gives without any complications and difficult and/or boilerplate code, putting together database logic and the kotlin program logic. From our experience separate .sql files are provocating errors and require more attention than having all the code in the same place.
+The main principle is to let the same agility that SQL gives without any complications and difficult and/or boilerplate code, putting together database logic and the kotlin program logic. From our experience, separate .sql files are causing errors and require more attention than having all the code in the same place. We still use .sql files for migrations only.
+
+The basic usage is as simple as:
+```kotlin
+
+val db: Database = TODO() // see samples below on how to
+
+db.withConnection { dbc ->
+    dbc.byId<SomeClassImplementinfIdentifiable>(17)
+    
+    data class User(val id: Long,val name: String,val email: String)
+    
+    val user: User = dbc.updateQueryRow(
+        "insert into users(name,email) values(?,?) returning *",
+        "Sergeych", "somename@acme.com"
+    )!!
+    
+    dbc.select<User>().where("name ilike ?", "serg*")
+        .where("email != ?", "noreply@acme.com")
+        .limit(10)
+        .order("name")
+        .all { user -> 
+            println(": $user")
+        }
+    dbc.update("delete from users where id = any(?)", setOf(1,2,3,4,5))
+    val userId = dbc.queryOne("select id from users where name=?", "sergeych")
+    val user1: User = dbc.queryRow("select * from users where id=?", userId)
+    val userList1 = dbc.query<User>("select * from users where id < ?", 100)
+    // or simpler
+    val user2 = dbc.find<User>("name" to "sergeych")!!
+    val user3 = dbc.find<User>("name = ?",  "sergeych")
+}
+
+```
+See inline of DatabaseConnection and `select()` and more details below.
 
 Some of our features:
 
@@ -125,6 +69,14 @@ Some of our features:
 - __Fast connection pool__ It has one simple and fast pool intended to detect some common pool usage errors (lake sharing pooled connections out of the usage context).
 
 - __Built-in migrations support__ is being made by combining flyway and ActiveRecord approach, providing __versioned migrations__ and __repeating migrations__, also source code migrations and platofrm-agnostic recovery support for failed migrations, what means rolling back transactinos where DDL supports it (e.g. with postgres), and copying the whole database where postgres is not yet used. This, though, requires `Schema` implementations for particular platforms, though we will provide generic one.
+
+- __out of box support for all basic types__ while creating objects from resultset
+
+- __support for @Serializable types for JSON__ as fields using database JSON/JSONB columns
+
+- __support for binary @Serializable__ for objects in fields of BYTEA oar like DB columns
+
+- __Identifiable\<T>__ service class provides some support for references. 
 
 ## Migrations
 
@@ -140,7 +92,7 @@ E.g. migrations with file name like `v<int>__<any_file_name>.sql` are performed 
 
 Numbered migrations are also checked for changes and if some already performed migration is changed, the migrator throws exception.
 
-Sample emgine initialization with migrations:
+Sample engine initialization with migrations:
 
 ~~~kotlin
     val db = run {
@@ -228,7 +180,7 @@ There is also blocking variant of this interface:
 
     suspend fun <T>asyncDb(block: (DbContext)->T)`
 
-But it just proxies to suspending one above.
+But it is just proxying to suspend one above.
 
 Kotyara executes the `block` above using own coroutine dispatcher which has limited number of thread constantly adjusted depending on the number of active database connections, which are also allocated dynamically.
 
@@ -244,11 +196,101 @@ Kotaya allocates new connections per-request basis and reuses them using fast co
 
 Still, the number of connection can't grow infintely. When it gets twice as mach as maximum retained number, it will not allocate new one but await or throw exception.
 
-When number of active connection changes, kotyara adjust number of threads in its coroutine dispatched pool to provide just enough parallelism processing all the connections in parallel. This means, after peak load kotyara will release both connection and OS threads.
+When the number of active connection changes, kotyara adjust number of threads in its coroutine dispatched pool to provide just enough parallelism processing all the connections in parallel. This means, after the peak load, kotyara will release both connection and OS threads.
 
-We will add a separate parameter later to control maximum number of allocated connections as well.
+We will add a separate parameter later to control the maximum number of allocated connections as well.
 
-## Latest changes
+# Some history
+
+## 1.3.3
+
+You can easily add you own converters now, or mark existing classes for JSON serializations. It is as simple as that:
+
+```kotlin
+// custom converter, part od Db
+inline fun <reified T : Any> asJson() {
+    register({
+        Json.decodeFromString<T>(getString(column))
+    }, {
+        setObject(column, Json.encodeToString(it),OTHER)
+    })
+}
+
+// registry is a part of te Database class, and it also 
+// allows marking existing classes for json:
+@Serializable
+data class JSFoo(val foo: String, val bar: Int)
+
+val database: Database = openDatabase()
+database.registry.asJson<JSFoo>()
+```
+
+Type registry is also available in `DbConnection` as `registry` or, for compatibility reasons, `converter`.
+
+Note that the registry is per-database, converter added for the connection will be immediately avaiable in all existing and future connections. Types registry is thread-safe.
+
+## 1.3.1-SNAPSHOT
+
+- Added support for automatic JSON de/serialization of fields using `DbJson` annotation. Just mark your serializable class with it and use `varchar`, `json`, `jsonb` or like columnt in your table. Here is the sample:
+```kotlin
+@Serializable
+@DbJson // important!
+data class JSFoo(val foo: String, val bar: Int)
+
+val f1 = JSFoo("foobar", 42)
+
+testDb().withContext { dbc ->
+    assertEquals("""{"foo":"foobar","bar":42}""", 
+        dbc.queryOne<String>("select ?", f1))
+    val d = dbc.queryOne<JSFoo>("select ?", f1)
+    assertEquals(f1, d)
+
+    dbc.execute(
+        """
+                create table if not exists dbjson_test(
+                    id serial not null primary key,
+                    encoded json not null
+                );
+            """.trimIndent()
+    )
+    val id = dbc.updateQueryOne<Int>("insert into dbjson_test(encoded) values(?) returning id", f1)!!
+    val d2 = dbc.queryOne<JSFoo>("select encoded from dbjson_test where id=?", id)
+    assertEquals(f1, d2)
+}
+
+```
+
+Serialization to JSON with JSON column type let us use encoded data fields in database queries (where DB supports json).
+
+Note that unmarked classes will be serialized with BOSS as before and require `bytea` column.
+
+## 1.2.10
+
+- Support for kotlinx.datetime types: `Instant`, `LocalDateTime` and `LocalDate`
+
+## 1.2.7 release
+
+This release is supposed to be productino stable with many new features. It is compiled with __java 1.8__ to get best bytecode compatibility and contain amny syntax sugar additions and better types compatibility. Some of the changelog:
+
+- `Relation.join` and `.addJoin` to simple and convenient add joined tables to `dbc.select()`
+- `Relation.include` as syntax sugar for join for one-to-namy case
+- Relation now has tracing `toString()` implementation that contain generated SQL and list of parameters
+
+## 1.2 experimental:
+
+This is a 1.2 branch, main points:
+
+- support of most scalar adn popular java date/time types
+- Boss encoding if unknown parameter types (bytea is expected)
+- Added `Identifiable<T>` record type with untility functions like `byId(), reload() and destroy()`
+- Added `hasMany` and `hasOne` tools to work with `Identifiable` records.
+
+Kotyara is an attempt to provide simpler and more kotlin-style database interface than other systems with "battary included" principle. It was influenced by simplicity of scala's ANROM library. Pity kotlin has no language features to mimic it at a larger extent.
+
+Especially if you get strange error like `java.lang.NoSuchMethodError: 'java.util.List java.util.stream.Stream.toList()`
+
+
+
 
 ## Incompatible changes in `1.1.*`
 
