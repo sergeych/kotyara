@@ -67,7 +67,7 @@ db.withConnection { dbc ->
     val newId: Long = dbc.updateAndGetId("insert into users(name,email) values(?,?)",
         "foo@bar.com", "Foobar")
     // now we know it's id and can retreive it as usual:
-    val newRecord: User = dbc.byId<User>(newId)!!
+    val newRecord: User = dbc.byId(newId)!!
 }
 
 ```
