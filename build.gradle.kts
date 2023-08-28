@@ -1,15 +1,16 @@
 //import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.7.21"
-    kotlin("plugin.serialization") version "1.7.21"
+    kotlin("jvm") version "1.9.0"
+    kotlin("plugin.serialization") version "1.9.0"
     id("java-library")
     `maven-publish`
 }
 
 group = "net.sergeych"
-version = "1.3.3"
+version = "1.4.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -26,6 +27,7 @@ dependencies {
     implementation("com.ionspin.kotlin:bignum:0.3.8")
     testImplementation(kotlin("test"))
     testImplementation("org.postgresql:postgresql:42.5.1")
+    testImplementation("com.h2database:h2:2.2.220")
 }
 
 java {
@@ -41,6 +43,10 @@ tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "1.8"
 }
 
+tasks.named<KotlinCompilationTask<*>>("compileKotlin").configure {
+    compilerOptions.freeCompilerArgs.add("-opt-in=kotlinx.serialization.ExperimentalSerializationApi")
+    compilerOptions.freeCompilerArgs.add("-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi")
+}
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.kotlinOptions {
     jvmTarget = "1.8"

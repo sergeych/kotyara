@@ -2,11 +2,20 @@
 
 __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
 
-This library is in production stage (postgres). Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
+This library is in production stage (postgres) and beta stage H2 and others. Few interfaces could be changed. It is internally used in pbeta-production sites, with Postgres JDBC connections.
 
 Important note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
-> Current stable: 1.3.3
+> Current stable: 1.3.3: postgres and like. Compatible with kotlin 1.7+
+> H2-compatible kotlin 1.9+: 1.4.0-SNAPSHOT
+
+## Versioning info
+
+Kotlin's libraries are not backward compatible, while kotlin 1.9 introduces many compiler improvements, so we upgrade to newest kotlin since version 1.4.0. It will not work in projects build with the previous kotlin version, use 1.3.* in this case.
+
+If you need kotlin < 1.9.0, use kotyara 1.3.*, otherwise use 1.4.*. 
+
+Support for databases that do not provide `returning` on `select` and therefore are dependent on the ability to retrieve last inserted keys, is added in 1.4.0 and is tested with the H2 database. 
 
 ## Installation
 
@@ -30,7 +39,7 @@ The basic usage is as simple as:
 val db: Database = TODO() // see samples below on how to
 
 db.withConnection { dbc ->
-    dbc.byId<SomeClassImplementinfIdentifiable>(17)
+    dbc.byId<SomeClassImplementingIdentifiable>(17)
     
     data class User(val id: Long,val name: String,val email: String)
     
@@ -53,6 +62,12 @@ db.withConnection { dbc ->
     // or simpler
     val user2 = dbc.find<User>("name" to "sergeych")!!
     val user3 = dbc.find<User>("name = ?",  "sergeych")
+
+    // suppose you are ysing H2, mysql or whatever else where select can not return:
+    val newId: Long = dbc.updateAndGetId("insert into users(name,email) values(?,?)",
+        "foo@bar.com", "Foobar")
+    // now we know it's id and can retreive it as usual:
+    val newRecord: User = dbc.byId<User>(newId)!!
 }
 
 ```

@@ -2,6 +2,7 @@ package net.sergeych.kotyara
 
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -69,8 +70,15 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
                 }
             } else {
                 try {
-                    if (cls.annotations.any { it is DbJson })
-                        Json.decodeFromString<Any?>(serializer(cls.createType()), getString(colName))
+                    if (cls.annotations.any { it is DbJson }) {
+                        Json.decodeFromString<Any?>(serializer(cls.createType()),
+                            getString(colName).let {
+                                // again, H2's JSON type returns json-encoded string with the json object,
+                                // so we need to decode a string first:
+                                if( it[0] == '"' ) Json.decodeFromString(it) else it
+                            }
+                        )
+                    }
                     else
                         BossDecoder.decodeFrom<Any?>(cls.createType(), getBytes(colName))
                 } catch (x: Exception) {
@@ -90,6 +98,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colIndex: Int): T? {
 inline fun <reified T : Any> ResultSet.getValue(colName: String): T? = getValue<T>(T::class, colName)
 inline fun <reified T : Any> ResultSet.getValue(colIndex: Int): T? = getValue<T>(T::class, colIndex)
 
+@Suppress("IMPLICIT_CAST_TO_ANY", "UNCHECKED_CAST")
 fun <T : Any> ResultSet.asOne(klass: KClass<T>, converter: DbTypeConverter?): T? {
     if (!next()) return null
     val constructor = klass.constructors.first()
@@ -103,7 +112,12 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>, converter: DbTypeConverter?): T?
             )
     }
     try {
-        return constructor.call(*args.toTypedArray())
+        return when(klass) {
+            Int::class -> getInt(1)
+            Long::class -> getInt(1)
+            String::class -> getString(1)
+            else -> constructor.call(*args.toTypedArray())
+        } as T
     } catch (x: Exception) {
         throw IllegalArgumentException(
             "failed to create instance of ${klass.simpleName}(${args.joinToString(",") { "$it: ${it?.javaClass?.simpleName}" }}",

@@ -11,6 +11,7 @@ import net.sergeych.tools.TaggedLogger
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
+import java.sql.Statement
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KClass
@@ -46,7 +47,7 @@ class DbContext(
     inline fun <reified T : Any> updateQueryOne(sql: String, vararg params: Any?): T? {
         return withResultSet(false, sql, *params) { rs ->
             if (rs.next())
-                convertFromDb(rs,1)
+                convertFromDb(rs, 1)
             else
                 null
         }
@@ -59,7 +60,7 @@ class DbContext(
      * @return row deserialized to the `T` type using its primary constructor or null if returned ResultSet is empty.
      */
     inline fun <reified T : Any> queryRow(sql: String, vararg params: Any?): T? {
-        return withResultSet(true, sql, *params) { it.asOne(T::class,converter) }
+        return withResultSet(true, sql, *params) { it.asOne(T::class, converter) }
     }
 
     /**
@@ -102,17 +103,30 @@ class DbContext(
     fun sql(sql: String, vararg params: Any?): Int =
         withWriteStatement(sql, *params) { it.executeUpdate() }
 
+    inline fun <reified T : Any> sql2(sql: String, vararg params: Any?): Pair<Int, T?> =
+        withWriteStatementReturningKeys(sql, *params) {
+            val count = it.executeUpdate()
+            if (!it.generatedKeys.next())
+                throw DbException("no keys were generated")
+            count to it.generatedKeys.getValue(1)
+        }
+
     /**
      * Performs update query and return number of affected rows. Same as [sql]
      */
     fun update(sql: String, vararg params: Any?): Int = sql(sql, *params)
+    inline fun <reified T : Any> updateAndGetId(sql: String, vararg params: Any?): T? = sql2<T>(sql, *params).second
 
+    inline fun <reified T: Any>updateAndReturn(sql: String,vararg params: Any?):T {
+        val id = updateAndGetId<Any>(sql, *params)
+        return byId<T>(id!!)!!
+    }
 
     /**
-     * Perfprms JDBC execute on statement, and returns its result: true if the first result is a ResultSet object;
+     * Perfprms JDBC execute on a statement, and returns its result: true if the first result is a ResultSet object;
      * false if the first result is an update count or there is no result. Use it when you need to execute
      * a statement that returns nothing, like `SELECT pg_some_fun()` which has not return value, as [query], [sql]
-     * and others may fail having no return value. See [JDBC docs](https://docs.oracle.com/javase/7/docs/api/java/sql/PreparedStatement.html#execute())
+     * and others may fail for having no return value. See [JDBC docs](https://docs.oracle.com/javase/7/docs/api/java/sql/PreparedStatement.html#execute())
      * for details on that difference.
      */
     fun execute(sql: String, vararg params: Any?): Boolean =
@@ -136,7 +150,7 @@ class DbContext(
             try {
                 block(rs)
             } catch (x: Exception) {
-                exception {  "withResultSet crashed" to x }
+                exception { "withResultSet crashed" to x }
                 throw x
             } finally {
                 rs.close()
@@ -162,7 +176,7 @@ class DbContext(
             try {
                 if (rs.next()) f(rs) else throw NotFoundException("database record not found")
             } catch (x: Exception) {
-                exception {  "withResultSet crashed" to x }
+                exception { "withResultSet crashed" to x }
                 throw x
             } finally {
                 rs.close()
@@ -173,7 +187,7 @@ class DbContext(
     internal fun <T> withReadStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
         withReadStatement2(sql, *args, f = block)
 
-    internal fun <T> withWriteStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
+    fun <T> withWriteStatement(sql: String, vararg args: Any?, block: (PreparedStatement) -> T): T =
         withWriteStatement2(sql, *args, f = block)
 
     internal fun <T> withStatement2(
@@ -201,22 +215,22 @@ class DbContext(
         )
         statement.clearParameters()
         args.forEachIndexed { i, x ->
-            setValue(x, statement,i + 1, sql)
+            setValue(x, statement, i + 1, sql)
         }
         // important: we do not close statement, we do cache it, so we should close result sets instead
         return f(statement).also { readStatementCache[sql] = statement }
     }
 
-    private fun setValue(value: Any?,statement: PreparedStatement,column: Int,sql: String) {
-        if( value == null || !converter.toDatabaseType(value, statement,column) )
+    private fun setValue(value: Any?, statement: PreparedStatement, column: Int, sql: String) {
+        if (value == null || !converter.toDatabaseType(value, statement, column))
             statement.setValue(column, value, sql)
     }
 
-    inline fun <reified T: Any>convertFromDb(rs: ResultSet,column: Int): T? =
-        converter.fromDatabaseType(T::class,rs, column) ?: rs.getValue(column)
+    inline fun <reified T : Any> convertFromDb(rs: ResultSet, column: Int): T? =
+        converter.fromDatabaseType(T::class, rs, column) ?: rs.getValue(column)
 
-    fun <T: Any>convertFromDb(klass: KClass<T>,rs: ResultSet,column: Int): T? =
-        converter.fromDatabaseType(klass,rs, column) ?: rs.getValue(klass,column)
+    fun <T : Any> convertFromDb(klass: KClass<T>, rs: ResultSet, column: Int): T? =
+        converter.fromDatabaseType(klass, rs, column) ?: rs.getValue(klass, column)
 
     fun <T> withWriteStatement2(
         sql: String,
@@ -226,12 +240,12 @@ class DbContext(
         debug { "WWS $sql [${args.joinToString(",")}]" }
         val isInTransaction = inTransaction
         val statement = if (isInTransaction) {
-            debug {"in transaction, cache will not be used" }
+            debug { "in transaction, cache will not be used" }
             writeConnection.prepareStatement(sql)
         } else
             writeStatementCache.remove(sql) ?: writeConnection.prepareStatement(sql)
         statement.clearParameters()
-        args.forEachIndexed { i, x -> setValue(x, statement,i + 1, sql) }
+        args.forEachIndexed { i, x -> setValue(x, statement, i + 1, sql) }
         // important: we do not close statement (its cached), we should close resultsets instead
         return f(statement).also {
             if (isInTransaction) statement.close()
@@ -239,7 +253,22 @@ class DbContext(
         }
     }
 
+    /**
+     * Statement that returns also keys. It is never cached.
+     */
+    fun <T> withWriteStatementReturningKeys(
+        sql: String,
+        vararg args: Any?,
+        f: (PreparedStatement) -> T
+    ): T {
+        debug { "WWSK $sql [${args.joinToString(",")}]" }
+        val statement = writeConnection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)
+        args.forEachIndexed { i, x -> setValue(x, statement, i + 1, sql) }
+        return f(statement).also { statement.close() }
+    }
+
     private var savepointLevel = AtomicInteger(0)
+
     /**
      * @return true if this context is already inside some savepoint or transaction
      */
@@ -264,21 +293,21 @@ class DbContext(
         writeConnection.autoCommit = false
         val sp = writeConnection.setSavepoint()
         savepointLevel.incrementAndGet()
-        debug {"created savepoint object: ${sp.savepointId}, level is ${savepointLevel.get()}" }
+        debug { "created savepoint object: ${sp.savepointId}, level is ${savepointLevel.get()}" }
         try {
-            debug {"running inside the savepoint $sp" }
+            debug { "running inside the savepoint $sp" }
             val result = f()
-            debug {"performing savepoint commit ${sp.savepointId}" }
+            debug { "performing savepoint commit ${sp.savepointId}" }
             // commit is done by restoring autocommit
 //            writeConnection.commit()
             return result
         } catch (x: Throwable) {
-            debug {"exception in savepoint ${sp.savepointId} will cause rollback: $x" }
+            debug { "exception in savepoint ${sp.savepointId} will cause rollback: $x" }
             writeConnection.rollback(sp)
             throw x
         } finally {
             val level = savepointLevel.decrementAndGet()
-            debug {"clearing savepoint ${sp.savepointId} ot level ${level} / $was" }
+            debug { "clearing savepoint ${sp.savepointId} ot level ${level} / $was" }
             writeConnection.autoCommit = was
         }
     }
@@ -289,18 +318,18 @@ class DbContext(
         val sp = writeConnection.setSavepoint()
         savepointLevel.incrementAndGet()
         try {
-            debug {"running inside the savepoint $sp" }
+            debug { "running inside the savepoint $sp" }
             val result = f()
-            debug {"performing savepoint commit $sp" }
+            debug { "performing savepoint commit $sp" }
 //            writeConnection.commit()
             return result
         } catch (x: Exception) {
-            debug {"exception in savepoint $sp will cause rollback: $x" }
+            debug { "exception in savepoint $sp will cause rollback: $x" }
             writeConnection.rollback(sp)
             throw x
         } finally {
             val level = savepointLevel.decrementAndGet()
-            debug {"cleaning savepoint $sp ot level ${level} / $was" }
+            debug { "cleaning savepoint $sp ot level ${level} / $was" }
             writeConnection.autoCommit = was
         }
     }
@@ -332,13 +361,13 @@ class DbContext(
      */
     fun executeAll(sqls: String) {
         for (block in parseBlocks(sqls)) {
-            val commands = if( block.isBlock ) listOf(block.value) else {
+            val commands = if (block.isBlock) listOf(block.value) else {
                 block.value.split(";\n").filter { it.isNotBlank() }
             }
             for (line in commands) {
                 writeConnection.prepareStatement(line).use {
                     val result = it.executeUpdate()
-                    debug {"EXECUTED: $result" }
+                    debug { "EXECUTED: $result" }
                 }
             }
         }
@@ -357,7 +386,7 @@ class DbContext(
      * The weak part of it is that it always deserializes to the instance of type provided ny creation. We plan to
      * add more complex `kotlinx.serialization` based solution for more complex objects.
      */
-    inline fun <reified T : Any> select(overrideTableName: String?=null): Relation<T> =
+    inline fun <reified T : Any> select(overrideTableName: String? = null): Relation<T> =
         Relation(this, T::class, overrideTableName)
 
     inline fun <reified T : Any> byId(id: Any): T? =
@@ -392,7 +421,7 @@ class DbContext(
             ignoreExceptions {
                 readConnection.close()
             }
-            debug {"DbContext $this is closed" }
+            debug { "DbContext $this is closed" }
         }
     }
 
@@ -405,9 +434,9 @@ class DbContext(
 //        debug("DbContext $this is allocated")
 //    }
 
-//    companion object {
-        val readStatementCache = ConcurrentBag<String, PreparedStatement>()
-        val writeStatementCache = ConcurrentBag<String, PreparedStatement>()
+    //    companion object {
+    val readStatementCache = ConcurrentBag<String, PreparedStatement>()
+    val writeStatementCache = ConcurrentBag<String, PreparedStatement>()
 //    }
 
 }
@@ -418,7 +447,7 @@ private val blockRe =
 /**
  * Result of parsing block-containting sql script, see [parseBlocks]
  */
-data class ScriptBlock(val value: String,val isBlock: Boolean)
+data class ScriptBlock(val value: String, val isBlock: Boolean)
 
 /**
  * Parse multiline text to pieces delimited by "-- start block -- and -- end block -- strings.

@@ -84,7 +84,6 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
             // let's try to encode with boss
             try {
                 if( x.javaClass.annotations.any { it is DbJson }) {
-                    println("Use JSON!")
                     setObject(n, Json.encodeToString(serializer(x::class.createType()), x), OTHER)
                 }
                 else

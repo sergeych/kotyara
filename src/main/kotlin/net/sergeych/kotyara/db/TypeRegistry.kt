@@ -42,7 +42,13 @@ class TypeRegistry(private val converter: DbTypeConverter? = null) : DbTypeConve
 
     inline fun <reified T : Any> asJson() {
         register({
-            Json.decodeFromString<T>(getString(column))
+            var src = getString(column)
+            if( src[0] == '"') {
+                // The H2-specific featurebug: it returns json-encoded string for JSON type
+                // when reading from DB, so we decode it twice:
+                src = Json.decodeFromString<String>(src)
+            }
+            Json.decodeFromString<T>(src)
         }, {
             setObject(column, Json.encodeToString(it),OTHER)
         })
