@@ -4,19 +4,20 @@ import kotlinx.coroutines.runBlocking
 import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.migrator.MigrationException
 import net.sergeych.kotyara.migrator.Migrations
+import net.sergeych.mp_logger.LogTag
 import net.sergeych.mp_logger.debug
 import net.sergeych.mp_logger.exception
 import net.sergeych.tools.ResourceHandle
-import net.sergeych.tools.TaggedLogger
 import java.time.Duration
 
 typealias MigrationHandler = (DbContext) -> Unit
 
-abstract class Schema(private val useTransactions: Boolean) : TaggedLogger("SCHM") {
+abstract class Schema(private val useTransactions: Boolean) : LogTag("SCHM") {
 
     private val beforeHandlers = HashMap<Int, MigrationHandler>()
     private val afterHandlers = HashMap<Int, MigrationHandler>()
 
+    @Suppress("unused")
     fun before(version: Int, handler: MigrationHandler): Schema {
         if (version < 1) throw IllegalArgumentException("bad version number: $version")
         if (beforeHandlers.containsKey(version))
@@ -25,6 +26,7 @@ abstract class Schema(private val useTransactions: Boolean) : TaggedLogger("SCHM
         return this
     }
 
+    @Suppress("unused")
     fun after(version: Int, handler: MigrationHandler): Schema {
         if (version < 1) throw IllegalArgumentException("bad version number: $version")
         if (afterHandlers.containsKey(version))
@@ -42,6 +44,7 @@ abstract class Schema(private val useTransactions: Boolean) : TaggedLogger("SCHM
 
     protected abstract fun prepareMigrationsTable(cxt: DbContext)
 
+    @Suppress("unused")
     var currentVersion = 0
 
     fun migrateWithResources(klass: Class<*>, db: Database, resourcePath: String = "db/migrations") {

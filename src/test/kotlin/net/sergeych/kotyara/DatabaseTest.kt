@@ -2,6 +2,7 @@ package net.sergeych.kotyara
 
 import kotlinx.coroutines.*
 import kotlinx.datetime.*
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import net.sergeych.boss_serialization_mp.BossEncoder
 import net.sergeych.kotyara.db.DbJson
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test
 import java.math.BigInteger
 import java.sql.PreparedStatement
 import java.sql.ResultSet
+import java.sql.SQLException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZonedDateTime
@@ -39,6 +41,7 @@ internal data class Outer(val x: Int) {
 }
 
 
+@OptIn(ExperimentalSerializationApi::class)
 internal class DatabaseTest {
 
     companion object {
@@ -428,11 +431,13 @@ internal class DatabaseTest {
                         val all = mutableListOf<Job>()
                         for (i in 1..N) {
                             all.add(launch(start = CoroutineStart.DEFAULT) {
+                                println("Launcin $i/$rep")
                                 db.asyncContext {
                                     it.execute("select pg_sleep(0.31)")
 //                                    it.execute("select 22")
                                     x.incrementAndGet()
                                 }
+                                println("finishing $i/$rep")
                             })
                         }
                         for (xx in all) xx.join()
@@ -549,45 +554,7 @@ internal class DatabaseTest {
             assertEquals(db.activeConnections, db.pooledConnections)
         }
     }
-
-    @Test
-    fun freeAsyncContextOnCancel() {
-        val db = testDb()
-//        fun stats(prefix: String = "") {
-//            println("$prefix A:${db.activeConnections} P:${db.pooledConnections} !${db.leakedConnections} of ${db.maxConnections}")
-//        }
-//        stats()
-        runBlocking {
-            for (i0 in 1..5) {
-                db.asyncContext { println("$it") }
-//                stats()
-                val job = launch {
-                    for (i in 1..5) {
-                        db.asyncContext {
-                            db.asyncContext {
-                                db.asyncContext {
-                                    db.asyncContext {
-                                        db.asyncContext {
-                                            db.asyncContext {
-//                                                stats("inAsync")
-                                                delay(500)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                delay(199)
-                job.cancel()
-                job.join()
-//                stats("result2")
-                assertEquals(db.activeConnections, db.pooledConnections)
-            }
-        }
-    }
-
+    
     @Test
     fun testLists() {
         val db = testDb()
@@ -701,6 +668,22 @@ internal class DatabaseTest {
 //        db.withContext { dbc ->
 //            dbc.
 //        }
+    }
+
+    @Test
+    fun closeOnSqlException() {
+        runBlocking {
+            Log.connectConsole(Log.Level.DEBUG)
+            val db = testDb(2)
+            for (i in 1..30) {
+                try {
+                    db.withContext { throw SQLException("SQL exception simulation") }
+                    fail("it should not reach this line")
+                } catch (_: SQLException) {
+                }
+            }
+            assertEquals(17, db.withContext { it.queryOne<Int>("select 17") })
+        }
     }
 
 }

@@ -7,13 +7,10 @@ import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.db.TypeRegistry
 import net.sergeych.kotyara.tools.UnitNotifier
 import net.sergeych.kotyara.tools.withReentrantLock
-import net.sergeych.mp_logger.debug
-import net.sergeych.mp_logger.exception
-import net.sergeych.mp_logger.info
-import net.sergeych.mp_logger.warning
-import net.sergeych.tools.TaggedLogger
+import net.sergeych.mp_logger.*
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.SQLException
 import java.time.Duration
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeoutException
@@ -28,7 +25,7 @@ class Database(
 //    var maxIdleConnections: Int = 5,
     private var _maxConnections: Int = 30,
     converter: DbTypeConverter? = null,
-) : TaggedLogger("DBSE") {
+) : LogTag("DBSE") {
 
     data class Stats(
         val maxConnections: Int,
@@ -112,10 +109,20 @@ class Database(
         }
     }
 
-    private suspend fun releaseContext(ct: DbContext) {
+    private suspend fun releaseContext(ct: DbContext, removeFromPool: Boolean = false) {
         try {
-            ct.beforeRelease()
-            inMutex { pool.add(ct) }
+            var doRemove = removeFromPool
+            if (ct.savepointLevel.get() > 0) {
+                ct.error { "DbContext is locked in savepoint, can't release but was released!" }
+                doRemove = true
+            }
+            if (doRemove) {
+                debug { "removing connection from pool $ct" }
+                inMutex { activeConnections-- }
+                runCatching { ct.close() }
+                debug { "connection removed: $ct" }
+            } else
+                inMutex { pool.add(ct) }
         } catch (t: Throwable) {
             exception { "in releaseContext, this could leak connection $ct" to t }
             inMutex {
@@ -123,13 +130,14 @@ class Database(
                 leakedConnections++
                 maxConnections++
             }
-            info { "trying to close leaked connnectoin $ct" }
+            info { "trying to close leaked connection $ct" }
             kotlin.runCatching { ct.close() }
         }
     }
 
     private suspend fun destroyContext(ct: DbContext) {
-        ct.beforeRelease()
+        if (ct.savepointLevel.get() > 0)
+            ct.error { "DbContext is locked in savepoint, can't release but was released!" }
         inMutex { ct.close() }
         activeConnections--
         (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize++
@@ -155,13 +163,18 @@ class Database(
     suspend fun <T> asyncContext(block: suspend (DbContext) -> T): T =
         withContext(dispatcher) {
             val ct = getContext()
+            var removeConnection = false
             try {
                 block(ct)
+            } catch (x: SQLException) {
+                removeConnection = true
+                warning { "connection $ct caught SQL exception and will be closed: $x" }
+                throw x
             } catch (t: Throwable) {
                 exception { "unexpected error in asyncContext, context $ct" to t }
                 throw t
             } finally {
-                releaseContext(ct)
+                releaseContext(ct, removeConnection)
             }
         }
 

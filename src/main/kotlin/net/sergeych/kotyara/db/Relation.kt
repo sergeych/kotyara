@@ -5,8 +5,8 @@ package net.sergeych.kotyara.db
 import net.sergeych.kotyara.DbException
 import net.sergeych.kotyara.asMany
 import net.sergeych.kotyara.asOne
+import net.sergeych.mp_logger.LogTag
 import net.sergeych.mp_logger.debug
-import net.sergeych.tools.TaggedLogger
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
@@ -16,7 +16,7 @@ class Relation<T : Any>(
     overrideTableName: String? = null,
     overrideFieldName: String? = null,
 ) :
-    TaggedLogger("RELN") {
+    LogTag("RELN") {
 
     private var _limit: Int? = null
     private var _offset: Int? = null
@@ -188,8 +188,8 @@ class Relation<T : Any>(
         return this
     }
 
-    fun buildSql(overrideLimit: Int? = null,doDelete: Boolean = false): String {
-        val sql = StringBuilder(if( doDelete ) deleteClause else selectClause)
+    fun buildSql(overrideLimit: Int? = null, doDelete: Boolean = false): String {
+        val sql = StringBuilder(if (doDelete) deleteClause else selectClause)
         for (j in joins) sql.append("\n$j")
         // todo: possible joins
         if (whereClauses.isNotEmpty()) {

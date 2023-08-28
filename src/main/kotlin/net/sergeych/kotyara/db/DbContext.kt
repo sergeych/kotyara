@@ -4,10 +4,7 @@ package net.sergeych.kotyara.db
 
 import net.sergeych.kotyara.*
 import net.sergeych.kotyara.tools.ConcurrentBag
-import net.sergeych.mp_logger.debug
-import net.sergeych.mp_logger.exception
-import net.sergeych.mp_logger.ignoreExceptions
-import net.sergeych.tools.TaggedLogger
+import net.sergeych.mp_logger.*
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
@@ -16,11 +13,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KClass
 
+private val idCounter = AtomicInteger(1)
 class DbContext(
     private val _readConnection: Connection,
     private val writeConnection: Connection = _readConnection,
     val converter: TypeRegistry
-) : TaggedLogger("DBC") {
+) : Loggable by LogTag("DBC${idCounter.getAndIncrement()}") {
 
     /**
      * The same as [converter]: rovides type registry for converting to/from
@@ -32,7 +30,7 @@ class DbContext(
         get() = if (inTransaction) writeConnection else _readConnection
 
     override fun toString(): String {
-        return "DBC($_readConnection,$writeConnection)"
+        return logTag
     }
 
     inline fun <reified T : Any> queryOne(sql: String, vararg params: Any?): T? {
@@ -114,7 +112,8 @@ class DbContext(
     /**
      * Performs update query and return number of affected rows. Same as [sql]
      */
-    fun update(sql: String, vararg params: Any?): Int = sql(sql, *params)
+    @Suppress("NOTHING_TO_INLINE")
+    inline fun update(sql: String, vararg params: Any?): Int = sql(sql, *params)
     inline fun <reified T : Any> updateAndGetId(sql: String, vararg params: Any?): T? = sql2<T>(sql, *params).second
 
     inline fun <reified T: Any>updateAndReturn(sql: String,vararg params: Any?):T {
@@ -267,21 +266,12 @@ class DbContext(
         return f(statement).also { statement.close() }
     }
 
-    private var savepointLevel = AtomicInteger(0)
+    internal var savepointLevel = AtomicInteger(0)
 
     /**
      * @return true if this context is already inside some savepoint or transaction
      */
     val inTransaction: Boolean get() = savepointLevel.get() > 0
-
-    /**
-     * Check that we can release this context for recycling in the [[Database]] pool
-     * This method _must throw exception_ if the connection is still somehow used!
-     */
-    internal fun beforeRelease() {
-        if (savepointLevel.get() > 0)
-            throw IllegalStateException("DbContext is locked in savepoint, can't release")
-    }
 
     /**
      * Creates savepoint and executes the block in it, rolling back on any exception throwing from it.

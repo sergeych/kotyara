@@ -1,14 +1,14 @@
 package net.sergeych.kotyara.migrator
 
-import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.Schema
+import net.sergeych.kotyara.db.DbContext
+import net.sergeych.mp_logger.LogTag
 import net.sergeych.mp_logger.info
-import net.sergeych.tools.TaggedLogger
 
 /**
  * Set of migrations from some source, like list of files or embedded resources.
  */
-class Migrations(source: Iterable<Source>) : TaggedLogger("MSRC") {
+class Migrations(source: Iterable<Source>) : LogTag("MSRC") {
 
     data class Source(val name: String, val sql: String)
 
@@ -22,6 +22,7 @@ class Migrations(source: Iterable<Source>) : TaggedLogger("MSRC") {
      *
      * @throws MigrationException if already performed versioned migrations were altered
      */
+    @Suppress("unused")
     fun checkIntegrity(cxt: DbContext) {
         cxt.query<PerformedMigration>("select * from ${Schema.migrationsTable} order by name")
             .forEach { m1 ->
@@ -64,7 +65,7 @@ class Migrations(source: Iterable<Source>) : TaggedLogger("MSRC") {
             info { "no migrations needed" }
         else
             info { "${migrationsToPerform.size} migration(s) to perform" }
-        return migrationsToPerform;
+        return migrationsToPerform
     }
 
     init {
