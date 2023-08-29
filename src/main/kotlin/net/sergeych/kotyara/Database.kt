@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.Mutex
 import net.sergeych.kotyara.db.DbContext
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.db.TypeRegistry
+import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.kotyara.tools.UnitNotifier
 import net.sergeych.kotyara.tools.withReentrantLock
 import net.sergeych.mp_logger.*
@@ -239,8 +240,25 @@ class Database(
         }
     }
 
+    /**
+     * At this time, the only schema is Postgres, but it is generally compatible with other systems
+     * except that if the target DB does not support transactions for DDL migrations will not be granular
+     * and atomic, so special care should be taken to back up base before opening unless postgres server
+     * is in use (ow whatever else that supports transactions for DDL).
+     * @param klass the class which resources will be scanned, usually `this`
+     */
     fun migrateWithResources(klass: Class<*>, schema: Schema, migrationPath: String = "/db_migrations") {
         schema.migrateWithResources(klass, this, migrationPath)
+    }
+
+    /**
+     * Migrate with default shceme (that works best woth postgres but can be used everywhere).
+     * Special care should be taken to back up base before opening unless postgres server
+     * is in use (ow whatever else that supports transactions for DDL).
+     * @param klass the class which resources will be scanned, usually `this`
+     */
+    fun migrateWithResources(klass: Class<*>, migrationPath: String = "/db_migrations") {
+        PostgresSchema().migrateWithResources(klass, this, migrationPath)
     }
 
     private val keeperLock = UnitNotifier()

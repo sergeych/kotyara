@@ -6,7 +6,6 @@ import kotlinx.serialization.Serializable
 import net.sergeych.boss_serialization_mp.BossEncoder
 import net.sergeych.kotyara.db.DbJson
 import net.sergeych.kotyara.db.DbTypeConverter
-import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.mp_logger.Log
 import net.sergeych.mptools.toDump
 import net.sergeych.tools.iso8601
@@ -467,22 +466,28 @@ internal class H2DatabaseTest {
 //        }
 
 //        DefaultLogger.connectStdout()
+        Log.connectConsole(Log.Level.DEBUG)
         val db = testDb()
         db.withContext { dbc ->
             dbc.sql("drop table if exists simple_types")
             dbc.sql("drop table if exists params")
             dbc.sql("drop table if exists __performed_migrations")
         }
-        Log.connectConsole()
-        db.migrateWithResources(this.javaClass, PostgresSchema(), "/h2_migration_test")
+        db.migrateWithResources(this.javaClass, "/h2_migration_test")
 //
-//        db.withContext { ct ->
+
+        data class Param(val id: Long, val name: String, val stringValue: String?, val binaryValue: ByteArray?)
+
+        for( t in 1..20 ) {
+            db.withContext { ct ->
+                val id = ct.updateAndGetId<Long>("insert into params(name, string_value) values('foo$t', 'bar$t')")!!
+                println(id)
+                val x = ct.byId<Param>(id)
+                println(x)
+                assertEquals(Param(id, "foo$t", "bar$t", null), x)
 //            println("see: ${ct.queryOne<Int>("select count(*) from params")}")
-//        }
-//        val i: Int = db.inContext { queryOne("select 42")!! }
-//        val s = PostgresSchema(db)
-//        s.migrateFromResources("migration_test1")
-//        Thread.sleep(300)
+            }
+        }
     }
 
     @Test

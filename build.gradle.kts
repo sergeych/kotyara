@@ -1,6 +1,7 @@
-//import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+//import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.9.0"
@@ -21,7 +22,7 @@ repositories {
 dependencies {
     implementation(kotlin("reflect"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("net.sergeych:mp_stools:[1.3.3,)")
+    api("net.sergeych:mp_stools:[1.3.3,)")
     implementation("net.sergeych:boss-serialization-mp:0.2.9")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
     implementation("com.ionspin.kotlin:bignum:0.3.8")

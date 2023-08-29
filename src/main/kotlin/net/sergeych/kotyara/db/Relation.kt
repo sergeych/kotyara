@@ -6,7 +6,6 @@ import net.sergeych.kotyara.DbException
 import net.sergeych.kotyara.asMany
 import net.sergeych.kotyara.asOne
 import net.sergeych.mp_logger.LogTag
-import net.sergeych.mp_logger.debug
 import java.sql.ResultSet
 import kotlin.reflect.KClass
 
@@ -210,7 +209,6 @@ class Relation<T : Any>(
 
         if (useForUpdate && !doDelete) sql.append(" for update")
 
-        debug { "Build sql: $this" }
         return sql.toString()
     }
 
