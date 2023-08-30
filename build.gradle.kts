@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.4.1-SNAPSHOT"
+version = "1.4.2-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -23,7 +23,7 @@ dependencies {
     implementation(kotlin("reflect"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     api("net.sergeych:mp_stools:[1.3.3,)")
-    implementation("net.sergeych:boss-serialization-mp:0.2.9")
+    implementation("net.sergeych:boss-serialization-mp:0.2.10")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
     implementation("com.ionspin.kotlin:bignum:0.3.8")
     testImplementation(kotlin("test"))

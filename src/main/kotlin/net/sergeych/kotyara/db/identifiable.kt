@@ -114,3 +114,9 @@ fun DbContext.updateCheck(expectedCount: Int,sqlClause: String,vararg args: Any)
     if( expectedCount != count )
         throw DbException("expected $expectedCount affected records, got $count")
 }
+
+inline fun <reified T: Identifiable<I>,reified I: Any>DbContext.updateAndReturn(sqlString: String,vararg params: Any?): T {
+    val id = updateAndGetId<I>(sqlString, *params)
+    if (id == null) throw DbException("updateAndReturn: update did not return id")
+    return byId<T>(id) ?: throw DbException("updateAndReturn failed to reload object")
+}

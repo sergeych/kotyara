@@ -116,11 +116,6 @@ class DbContext(
     inline fun update(sql: String, vararg params: Any?): Int = sql(sql, *params)
     inline fun <reified T : Any> updateAndGetId(sql: String, vararg params: Any?): T? = sql2<T>(sql, *params).second
 
-    inline fun <reified T: Any>updateAndReturn(sql: String,vararg params: Any?):T {
-        val id = updateAndGetId<Any>(sql, *params)
-        return byId<T>(id!!)!!
-    }
-
     /**
      * Perfprms JDBC execute on a statement, and returns its result: true if the first result is a ResultSet object;
      * false if the first result is an update count or there is no result. Use it when you need to execute
@@ -387,6 +382,12 @@ class DbContext(
 
     inline fun <reified T : Any> findBy(fieldName: String, value: Any?): T? =
         select<T>().where(fieldName to value).first
+
+    inline fun <reified T : Any> findWhere(sqlString: String, vararg params: Any): T? =
+        select<T>().where(sqlString, *params).first
+
+    inline fun <reified T : Any> findBy(vararg fields: Pair<String,Any?>): T? =
+        select<T>().where(*fields).first
 
     /**
      * Execute a closure in the transaction block with an instance if T-type record loaded using specified

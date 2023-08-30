@@ -686,6 +686,15 @@ internal class DatabaseTest {
         }
     }
 
+    @Test
+    fun testRawDecode() {
+        testDb().inContext {
+            data class OneTwo(val one: Int, val two: Int)
+            val x = queryRow<OneTwo>("select 1 as one,2 as two")
+            println(x)
+        }
+    }
+
 }
 
 fun assertEmpty(collection: Collection<*>) {

@@ -71,13 +71,13 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
             } else {
                 try {
                     if (cls.annotations.any { it is DbJson }) {
-                        Json.decodeFromString<Any?>(serializer(cls.createType()),
-                            getString(colName).let {
-                                // again, H2's JSON type returns json-encoded string with the json object,
-                                // so we need to decode a string first:
-                                if( it[0] == '"' ) Json.decodeFromString(it) else it
-                            }
-                        )
+                        getString(colName).let {
+                            // again, H2's JSON type returns json-encoded string with the json object,
+                            // so we need to decode a string first:
+                            if( it[0] == '"' ) Json.decodeFromString(it) else it
+                        }?.let {
+                            Json.decodeFromString(serializer(cls.createType()), it)
+                        }
                     }
                     else
                         BossDecoder.decodeFrom<Any?>(cls.createType(), getBytes(colName))
