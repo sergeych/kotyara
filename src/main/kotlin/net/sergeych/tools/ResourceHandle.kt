@@ -38,16 +38,19 @@ class ResourceHandle(val name: String, val text: String) {
 //                    it.toList().mapNotNull { r: Path ->
                     val all = mutableListOf<Path>()
                     for( x in it) all.add(x)
-                    all.mapNotNull { r: Path ->
-                        val index = r.pathString.indexOf(root)
-                        if (r.isDirectory() || index < 0)
+                    all.mapNotNull { pr: Path ->
+                        val pathString = if( detectedPlatform == PlatformType.Windows )
+                            pr.pathString.replace('\\', '/')
+                        else pr.pathString
+                        val index = pathString.indexOf(root)
+                        if (pr.isDirectory() || index < 0)
                             null
                         else {
-                            val name = r.pathString.substring(index + root.length + 1)
+                            val name = pr.pathString.substring(index + root.length + 1)
                             if (name.isEmpty())
                                 null
                             else {
-                                ResourceHandle(name, r.readText())
+                                ResourceHandle(name, pr.readText())
                             }
                         }
                     }

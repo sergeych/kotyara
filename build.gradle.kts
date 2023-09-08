@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.4.2-SNAPSHOT"
+version = "1.4.3-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -87,20 +87,24 @@ publishing {
 
     repositories {
         maven {
-            val mavenUser: String by project
-            val mavenPassword: String by project
+            val mavenUser: String? by project
+            val mavenPassword: String? by project
             url = uri("https://maven.universablockchain.com/")
-            credentials {
-                username = mavenUser
-                password = mavenPassword
+            if (mavenUser != null && mavenPassword != null) {
+                credentials {
+                    username = mavenUser
+                    password = mavenPassword
+                }
+            } else {
+                println("You can't publish from this computer")
             }
+        }
 //
 //            credentials {
 //                username = System.getenv("maven_user")
 //                password = System.getenv("maven_password")
 //            }
-        }
     }
-
 }
+
 
