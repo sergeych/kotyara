@@ -7,7 +7,7 @@ This library is in production stage (postgres) and beta stage H2 and others. Few
 Important note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
 > Current stable: 1.3.3: postgres and like. Compatible with kotlin 1.7+
-> H2-compatible kotlin 1.9+: 1.4.0-SNAPSHOT
+> H2-compatible kotlin 1.9+: 1.4.0-SNAPSHOT. 1.4 works with H2 also on windows!
 
 ## Versioning info
 
@@ -322,24 +322,10 @@ Enhancements
 - support for java.time.Instant
 - few bugs fixed
 
-
-
-
 ## Nearest plans
 
-As 0.3.+ already supports coroutines very well, our plans are:
+We completed our roadmap with a great success, kotyara purrs in many commercials projects and looks great. Will improve speed and add more syntax sugar for kotlinx.serialized types. Write me a feature request in issues!
 
-- move references (hasOne) here from our other projects.
-
-- create basic documentation
-
-- add coroutine wraps for postgres `LISTEN` according to their documentation (really strange)
-
-- add flows support to queries
-
-We dropped plans to use serialization for fields as it provides more problem than profut and usage ease. 
-
-- prepare to switch to kotlinx serialization in 1.0. It is not easy and will break compatibility, and we hope to see some important features in kotlinx first, as for now reflection though slow and big saves the day with converting data to and from database columns.
 
 ## Usage notes
 
