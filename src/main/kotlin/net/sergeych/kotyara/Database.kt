@@ -95,7 +95,7 @@ class Database(
             if (activeConnections < maxConnections * 2) {
                 val dbc = if (readConnectionFactory == writeConnectionFactory) {
                     val connection = readConnectionFactory()
-                    DbContext(connection, connection, registry)
+                    DbContext(connection, connection, registry).also { it.logLevel = logLevel }
                 } else DbContext(readConnectionFactory(), writeConnectionFactory(), registry)
                 activeConnections++
                 (dispatcher.executor as ScheduledThreadPoolExecutor).corePoolSize++
