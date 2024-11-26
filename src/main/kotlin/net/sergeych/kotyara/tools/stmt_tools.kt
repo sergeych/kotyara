@@ -46,6 +46,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
         is com.ionspin.kotlin.bignum.decimal.BigDecimal -> setBigDecimal(n, x.toJavaBigDecimal())
         is Boolean -> setBoolean(n, x)
         is ByteArray -> setBytes(n, x)
+        is UByteArray -> setBytes(n, x.asByteArray())
         is Char -> setString(n, "$x")
         is JsonObject -> setObject(n, Json.encodeToString(x), OTHER)
         is LocalDateTime -> setTimestamp(n, Timestamp.valueOf(x))

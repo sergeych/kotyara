@@ -2,7 +2,6 @@ package net.sergeych.kotyara
 
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -36,6 +35,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
 
         Float::class -> getFloat(colName)
         ByteArray::class -> getBytes(colName)
+        UByteArray::class -> getBytes(colName)?.asUByteArray()
         LocalDate::class -> getTimestamp(colName)?.toLocalDateTime()?.toLocalDate()
         JsonObject::class -> getString(colName)?.let { Json.parseToJsonElement(it).jsonObject }
         ZonedDateTime::class -> getTimestamp(colName)?.let { t ->

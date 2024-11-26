@@ -144,6 +144,22 @@ internal class DatabaseTest {
     }
 
     @Test
+    fun ubyteArray() {
+        val db = testDb()
+        db.withContext { dbc ->
+            dbc.sql("drop table if exists foobars")
+            dbc.sql("create table if not exists foobars(data bytea)")
+            dbc.execute("insert into foobars(data) values(?)", byteArrayOf(1,2,3))
+            assertContentEquals(byteArrayOf(1, 2, 3), dbc.queryOne<ByteArray>("select data from foobars limit 1")!!)
+            assertContentEquals(ubyteArrayOf(1u, 2u, 3u), dbc.queryOne<UByteArray>("select data from foobars limit 1")!!)
+            dbc.execute("delete from foobars")
+            dbc.execute("insert into foobars(data) values(?)", ubyteArrayOf(4u,5u,6u))
+            assertContentEquals(byteArrayOf(4, 5, 6), dbc.queryOne<ByteArray>("select data from foobars limit 1")!!)
+            assertContentEquals(ubyteArrayOf(4u, 5u, 6u), dbc.queryOne<UByteArray>("select data from foobars limit 1")!!)
+        }
+    }
+
+    @Test
     fun testFreeContext() {
         val db = testDb()
         val s0 = db.stats()

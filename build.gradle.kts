@@ -4,14 +4,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 //import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.9.0"
-    kotlin("plugin.serialization") version "1.9.0"
+    kotlin("jvm") version "2.0.21"
+    kotlin("plugin.serialization") version "2.0.0"
     id("java-library")
     `maven-publish`
 }
 
 group = "net.sergeych"
-version = "1.4.3"
+version = "1.4.4"
 
 repositories {
     mavenCentral()
@@ -47,6 +47,7 @@ tasks.withType<KotlinCompile>() {
 tasks.named<KotlinCompilationTask<*>>("compileKotlin").configure {
     compilerOptions.freeCompilerArgs.add("-opt-in=kotlinx.serialization.ExperimentalSerializationApi")
     compilerOptions.freeCompilerArgs.add("-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi")
+    compilerOptions.freeCompilerArgs.add("-opt-in=kotlin.ExperimentalUnsignedTypes")
 }
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.kotlinOptions {

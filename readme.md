@@ -4,7 +4,7 @@ __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ 
 
 Important note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
-- **Current stable: 1.4.3**: H2, postgres, any JDBC. Linux, Windows and Mac and like. Compatible with kotlin 1.9.
+- **Current stable: 1.4.4**: H2, postgres, any JDBC. Linux, Windows and Mac and like. Compatible with kotlin 1.9.
 - for older kotlin versions, use 1.3.3. It works well with Linux and postgres and kotlin 1.7-1.8. Unfortunately, new
   features are not backport there.
 
@@ -20,8 +20,8 @@ inserted/processed keys. We use it with Postgres and H2 fairly lot.
 dependencies {
     //...
     // do not forget to supply jdbc:
-    implementation("org.postgresql:postgresql:42.3.1")
-    implementation("net.sergeych:kotyara:${current_version}")
+    implementation("org.postgresql:postgresql:42.3.1") // use current version for the moment
+    implementation("net.sergeych:kotyara:1.4.4")
 }
 ~~~
 
