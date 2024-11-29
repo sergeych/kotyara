@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 import net.sergeych.bipack.BipackEncoder
 import net.sergeych.kotyara.db.DbJson
 import net.sergeych.kotyara.db.DbTypeConverter
+import net.sergeych.kotyara.db.updateCheck
 import net.sergeych.kotyara.migrator.PostgresSchema
 import net.sergeych.mp_logger.Log
 import net.sergeych.mptools.toDump
@@ -288,6 +289,74 @@ internal class DatabaseTest {
                 """.trimIndent()
             )
             println(i)
+        }
+    }
+
+    @Test
+    fun selectByteArray() {
+        testDb().inContext {
+            executeAll(
+                """
+                drop table if exists binaries cascade;
+                
+                create table binaries(
+                    id bigserial primary key,
+                    name varchar not null,
+                    login_id bytea,
+                    data bytea,
+                    created_at timestamp not null default now()
+                    );               
+                """.trimIndent()
+            )
+            val data = byteArrayOf(1,2,0,3)
+            val loginId = byteArrayOf(5,6,0,7,8)
+            updateCheck(1,
+                """
+                    insert into binaries(name,login_id,data) values(?,?,?);
+                """.trimIndent(), "jdoe", loginId, data)
+            val x = queryOne<ByteArray>("select data from binaries where name=? and login_id=?",
+                "jdoe", loginId)
+            assertContentEquals(data, x)
+            null
+        }
+    }
+
+    @Test
+    fun selectUByteArray() {
+        testDb().inContext {
+            executeAll(
+                """
+                drop table if exists binaries cascade;
+                
+                create table binaries(
+                    id bigserial primary key,
+                    name varchar not null,
+                    login_id bytea,
+                    data bytea,
+                    created_at timestamp not null default now()
+                    );               
+                """.trimIndent()
+            )
+            val data = byteArrayOf(1,2,0,3).asUByteArray()
+            val loginId = byteArrayOf(5,6,0,7,8).asUByteArray()
+            updateCheck(1,
+                """
+                    insert into binaries(name,login_id,data) values(?,?,?);
+                """.trimIndent(), "jdoe", loginId, data)
+            val x = queryOne<ByteArray>("select data from binaries where name=? and login_id=?",
+                "jdoe", loginId)
+            assertContentEquals(data, x?.asUByteArray())
+            null
+        }
+    }
+
+    @Test
+    fun testProperByteArrayPassing() {
+        val x = byteArrayOf(1,2,3)
+        testDb().inContext {
+            assertContentEquals(x, queryOne<ByteArray>("select ?",x))
+            assertContentEquals(x, queryOne<ByteArray>("select ?",x.asUByteArray()))
+            assertContentEquals(x.asUByteArray(), queryOne<UByteArray>("select ?",x.asUByteArray()))
         }
     }
 
