@@ -8,13 +8,14 @@ __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ 
 
 - Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
-- **Current stable: 1.4.4**: H2, postgres, any JDBC. Linux, Windows and Mac and like. Compatible with kotlin 1.9. Experimental is `1.5.1-SNPASHOT` which is (see above) not fully data-compatible
+- **Current stables are: 1.5.1 with new bnary packing and 1.4.4 for compatibility**: H2, postgres, any JDBC. Linux, Windows and Mac and like. Compatible with kotlin 1.9. Experimental is `1.5.1-SNPASHOT` which is (see above) not fully data-compatible
+
 - for older kotlin versions, use 1.3.3. It works well with Linux and postgres and kotlin 1.7-1.8. Unfortunately, new
   features are not backport there.
 
 ## DB Compatibility
 
-Kotyara works with databases that provide `returning` in DML and also with more tradition systems returning last
+Kotyara works with both databases that provide `returning` in DML and also with more tradition systems returning last
 inserted/processed keys. We use it with Postgres and H2 fairly lot.
 
 ## Installation
@@ -25,7 +26,7 @@ dependencies {
     //...
     // do not forget to supply jdbc:
     implementation("org.postgresql:postgresql:42.3.1") // use current version for the moment
-    implementation("net.sergeych:kotyara:1.4.4")
+    implementation("net.sergeych:kotyara:1.5.1")
 }
 ~~~
 
