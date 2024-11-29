@@ -12,7 +12,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
-import net.sergeych.boss_serialization_mp.BossEncoder
+import net.sergeych.bipack.BipackEncoder
 import net.sergeych.kotyara.db.DbJson
 import java.math.BigDecimal
 import java.sql.PreparedStatement
@@ -82,13 +82,22 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
             Timestamp.valueOf(ZonedDateTime.ofInstant(x, ZoneId.systemDefault()).toLocalDateTime()))
         null -> setObject(n, null)
         else -> {
-            // let's try to encode with boss
+            // let's try to encode with bipack
             try {
                 if( x.javaClass.annotations.any { it is DbJson }) {
                     setObject(n, Json.encodeToString(serializer(x::class.createType()), x), OTHER)
                 }
-                else
-                    setBytes(n, BossEncoder.encode(x::class.createType(), x))
+                else {
+                    println("***********")
+                    println("***********")
+                    println("*********** -- ${x::class.qualifiedName} : ${x}")
+                    println("***********")
+                    println("***********")
+
+                    setBytes(n, BipackEncoder.encode(serializer(x::class.createType()),x))
+//                    setBytes(n, BossEncoder.encode(x::class.createType(), x))
+
+                }
             }
             catch(x: Exception) {
                 throw IllegalArgumentException("unknown param[$n]:$x type: ${x::class.qualifiedName} from $sql", x)

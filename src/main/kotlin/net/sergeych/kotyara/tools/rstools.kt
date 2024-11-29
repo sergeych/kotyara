@@ -6,7 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
-import net.sergeych.boss_serialization.BossDecoder
+import net.sergeych.bipack.BipackDecoder
 import net.sergeych.kotyara.db.DbJson
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.tools.camelToSnakeCase
@@ -80,7 +80,7 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
                         }
                     }
                     else
-                        BossDecoder.decodeFrom<Any?>(cls.createType(), getBytes(colName))
+                        BipackDecoder.decode(serializer(cls.createType()),getBytes(colName))
                 } catch (x: Exception) {
                     throw DbException("unknown param type $cls for column '$colName'", x)
                 }

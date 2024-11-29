@@ -2,9 +2,13 @@
 
 __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
 
-Important note. Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
+## Important information
 
-- **Current stable: 1.4.4**: H2, postgres, any JDBC. Linux, Windows and Mac and like. Compatible with kotlin 1.9.
+- Since `1.5.1` binary serialization is changed to [BiPack](https://code.sergeych.net/docs/mp_bintools/mp_bintools/net.sergeych.bipack/index.html) to reduce storage overhead in most cases. It is thus incompatible with existing serialized binary data. We will add support to old data soon, please add [a task here](https://gitea.sergeych.net/SergeychWorks/mp_bintools/issues) if you need it fast.
+
+- Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
+
+- **Current stable: 1.4.4**: H2, postgres, any JDBC. Linux, Windows and Mac and like. Compatible with kotlin 1.9. Experimental is `1.5.1-SNPASHOT` which is (see above) not fully data-compatible
 - for older kotlin versions, use 1.3.3. It works well with Linux and postgres and kotlin 1.7-1.8. Unfortunately, new
   features are not backport there.
 

@@ -4,7 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.datetime.*
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
-import net.sergeych.boss_serialization_mp.BossEncoder
+import net.sergeych.bipack.BipackEncoder
 import net.sergeych.kotyara.db.DbJson
 import net.sergeych.kotyara.db.DbTypeConverter
 import net.sergeych.kotyara.migrator.PostgresSchema
@@ -99,7 +99,7 @@ internal class DatabaseTest {
     fun convertBoss() {
         val db = testDb()
         val s1 = S1(42, "foobar")
-        val x = BossEncoder.encode(s1)
+        val x = BipackEncoder.encode(s1)
         println(x.toDump())
         db.inContext {
             val s2: S1? = queryOne("select ?", s1)

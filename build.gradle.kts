@@ -11,20 +11,22 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.4.4"
+version = "1.5.1-SNAPSHOT"
 
 repositories {
     mavenCentral()
     mavenLocal()
     maven("https://maven.universablockchain.com/")
+    maven("https://gitea.sergeych.net/api/packages/SergeychWorks/maven")
 }
 
 dependencies {
     implementation(kotlin("reflect"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     api("net.sergeych:mp_stools:[1.3.3,)")
     implementation("net.sergeych:boss-serialization-mp:0.2.10")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+    api("net.sergeych:mp_bintools:0.1.7+")
     implementation("com.ionspin.kotlin:bignum:0.3.8")
     testImplementation(kotlin("test"))
     testImplementation("org.postgresql:postgresql:42.5.1")
