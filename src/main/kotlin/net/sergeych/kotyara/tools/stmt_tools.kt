@@ -88,15 +88,7 @@ fun PreparedStatement.setValue(n: Int, x: Any?, sql: String = "<not set>") {
                     setObject(n, Json.encodeToString(serializer(x::class.createType()), x), OTHER)
                 }
                 else {
-                    println("***********")
-                    println("***********")
-                    println("*********** -- ${x::class.qualifiedName} : ${x}")
-                    println("***********")
-                    println("***********")
-
                     setBytes(n, BipackEncoder.encode(serializer(x::class.createType()),x))
-//                    setBytes(n, BossEncoder.encode(x::class.createType(), x))
-
                 }
             }
             catch(x: Exception) {
