@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.5.1"
+version = "1.5.3-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -26,7 +26,7 @@ dependencies {
     api("net.sergeych:mp_stools:[1.3.3,)")
     implementation("net.sergeych:boss-serialization-mp:0.2.10")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
-    api("net.sergeych:mp_bintools:0.1.7+")
+    api("net.sergeych:mp_bintools:0.1.9-SNAPSHOT")
     implementation("com.ionspin.kotlin:bignum:0.3.8")
     testImplementation(kotlin("test"))
     testImplementation("org.postgresql:postgresql:42.5.1")
