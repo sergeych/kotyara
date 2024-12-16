@@ -79,8 +79,12 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
                             Json.decodeFromString(serializer(cls.createType()), it)
                         }
                     }
-                    else
-                        BipackDecoder.decode(serializer(cls.createType()),getBytes(colName))
+                    else {
+                        // support nullable:
+                        getBytes(colName)?.let {
+                            BipackDecoder.decode(serializer(cls.createType()), it)
+                        }
+                    }
                 } catch (x: Exception) {
                     throw DbException("unknown param type $cls for column '$colName'", x)
                 }
