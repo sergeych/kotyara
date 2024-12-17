@@ -7,11 +7,12 @@ plugins {
     kotlin("jvm") version "2.0.21"
     kotlin("plugin.serialization") version "2.0.0"
     id("java-library")
+    id("org.jetbrains.dokka") version "2.0.0"
     `maven-publish`
 }
 
 group = "net.sergeych"
-version = "1.5.4-SNAPSHOT"
+version = "1.5.4"
 
 repositories {
     mavenCentral()
@@ -107,6 +108,15 @@ publishing {
 //                username = System.getenv("maven_user")
 //                password = System.getenv("maven_password")
 //            }
+    }
+}
+
+tasks.dokkaHtml.configure {
+    outputDirectory.set(buildDir.resolve("dokka"))
+    dokkaSourceSets {
+//        configureEach {
+//            includes.from("readme.md")
+//        }
     }
 }
 

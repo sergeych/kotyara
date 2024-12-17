@@ -2,9 +2,13 @@
 
 __KOTlin-oriented Yet Another Relational-database Assistant__, e.g. __KOTYARA__ ;)
 
+Se also [automatically generated documentation](https://code.sergeych.net/docs/kotyara/)
+
 ## Important information
 
-- Since `1.5.1` binary serialization is changed to [BiPack](https://code.sergeych.net/docs/mp_bintools/mp_bintools/net.sergeych.bipack/index.html) to reduce storage overhead in most cases. It is thus incompatible with existing serialized binary data. We will add support to old data soon, please add [a task here](https://gitea.sergeych.net/SergeychWorks/mp_bintools/issues) if you need it fast.
+- Current version is 1.5.4
+
+- Since `1.5.1+` binary serialization is changed to [BiPack](https://code.sergeych.net/docs/mp_bintools/mp_bintools/net.sergeych.bipack/index.html) to reduce storage overhead in most cases. It is thus incompatible with existing serialized binary data. We will add support to old data soon, please add [a task here](https://gitea.sergeych.net/SergeychWorks/mp_bintools/issues) if you need it fast.
 
 - Do not use `'x IN (?)'` condition, use `'x = any (?) '` instead!
 
@@ -26,7 +30,7 @@ dependencies {
     //...
     // do not forget to supply jdbc:
     implementation("org.postgresql:postgresql:42.3.1") // use current version for the moment
-    implementation("net.sergeych:kotyara:1.5.1")
+    implementation("net.sergeych:kotyara:1.5.4")
 }
 ~~~
 
