@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 //import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.0.21"
+    kotlin("jvm") version "2.1.0"
     kotlin("plugin.serialization") version "2.0.0"
     id("java-library")
     id("org.jetbrains.dokka") version "2.0.0"
@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "net.sergeych"
-version = "1.5.4"
+version = "1.6.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
     api("net.sergeych:mp_stools:[1.3.3,)")
     implementation("net.sergeych:boss-serialization-mp:0.2.10")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")

@@ -172,7 +172,7 @@ class Database(
                 warning { "connection $ct caught SQL exception and will be closed: $x" }
                 throw x
             } catch (t: Throwable) {
-                exception { "unexpected error in asyncContext, context $ct" to t }
+//                exception { "unexpected error in asyncContext, context $ct" to t }
                 throw t
             } finally {
                 releaseContext(ct, removeConnection)
