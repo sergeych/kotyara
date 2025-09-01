@@ -6,7 +6,7 @@ Se also [automatically generated documentation](https://code.sergeych.net/docs/k
 
 ## Important information
 
-- Current version is 1.5.4
+- Current version is 1.6.0
 
 - Since `1.5.1+` binary serialization is changed to [BiPack](https://code.sergeych.net/docs/mp_bintools/mp_bintools/net.sergeych.bipack/index.html) to reduce storage overhead in most cases. It is thus incompatible with existing serialized binary data. We will add support to old data soon, please add [a task here](https://gitea.sergeych.net/SergeychWorks/mp_bintools/issues) if you need it fast.
 

@@ -36,7 +36,7 @@ enum class Enum1 {
 }
 
 internal data class Outer(val x: Int) {
-    enum class Enum1 {
+    enum class Enum2 {
         FOO, BAR;
     }
 }
@@ -228,7 +228,7 @@ internal class DatabaseTest {
 
     @Test
     fun enumsInside() {
-        data class Foobar1(val foo: Outer.Enum1, val bar: Outer.Enum1)
+        data class Foobar1(val foo: Outer.Enum2, val bar: Outer.Enum2)
 
         val db = testDb()
         db.withContext {
@@ -236,11 +236,11 @@ internal class DatabaseTest {
             it.sql("create table foobars(foo int,bar varchar)")
             val r = it.updateQueryRow<Foobar1>(
                 "insert into foobars(foo,bar) values(?,?) returning *",
-                Outer.Enum1.FOO, Outer.Enum1.BAR
+                Outer.Enum2.FOO, Outer.Enum2.BAR
             )
             println(":: $r")
-            assertEquals(Outer.Enum1.FOO, r!!.foo)
-            assertEquals(Outer.Enum1.BAR, r.bar)
+            assertEquals(Outer.Enum2.FOO, r!!.foo)
+            assertEquals(Outer.Enum2.BAR, r.bar)
         }
     }
 

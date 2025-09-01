@@ -66,7 +66,10 @@ fun <T : Any> ResultSet.getValue(cls: KClass<T>, colName: String): T? {
                     val ordinal = x.toInt()
                     cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.ordinal == ordinal }
                 } else {
-                    cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.name == x.toString() }
+                    if( x == null )
+                        null
+                    else
+                        cls.java.enumConstants.filterIsInstance(Enum::class.java).first { it.name == x.toString() }
                 }
             } else {
                 try {
@@ -109,11 +112,16 @@ fun <T : Any> ResultSet.asOne(klass: KClass<T>, converter: DbTypeConverter?): T?
     val args = constructor.parameters.map { param ->
         val columnName = param.name!!.camelToSnakeCase()
         val paramType = param.type.jvmErasure
-        converter?.fromDatabaseType(paramType, this, findColumn(columnName))
-            ?: getValue(
-                paramType,
-                columnName
-            )
+        try {
+            converter?.fromDatabaseType(paramType, this, findColumn(columnName))
+                ?: getValue(
+                    paramType,
+                    columnName
+                )
+        }
+        catch(x: NoSuchElementException) {
+            throw IllegalArgumentException("Can't convert value of type ${param.type} for column $columnName", x)
+        }
     }
     try {
         return when(klass) {
